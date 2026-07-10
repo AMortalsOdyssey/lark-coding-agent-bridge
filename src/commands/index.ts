@@ -1819,7 +1819,12 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       ? (rawReply as MessageReplyMode)
       : getMessageReplyMode(ctx.controls.cfg);
   const rawTools = String(fv.show_tool_calls ?? '').trim();
-  const showToolCalls = rawTools !== 'hide';
+  const showToolCalls =
+    rawTools === 'show'
+      ? true
+      : rawTools === 'hide'
+        ? false
+        : getShowToolCalls(ctx.controls.cfg);
   // Parse the model picker. Unexpected / empty values keep the current
   // selection. Store `undefined` for the "default" sentinel to keep config
   // tidy (resolveModelArg treats both the same way).

@@ -40,12 +40,14 @@ import {
 } from '../config/schema';
 import { resolveAppSecret } from '../config/secret-resolver';
 import { log, reportMetric, withTrace } from '../core/logger';
+import { loadPrivateRuleInstructions } from '../agent/private-rules';
 import { MediaCache, type LocalAttachment } from '../media/cache';
 import {
   toPolicyAttachment,
   toPromptAttachment,
 } from '../media/attachment';
-import { canUseDm, canUseGroup } from '../policy/access';
+import { canUseDm } from '../policy/access';
+import { canUseGroupWithOwnerPresence } from '../policy/group-owner';
 import type { ScopeContext } from '../policy/run-policy';
 import { createOwnerRefreshController } from '../policy/owner';
 import { RunExecutor } from '../runtime/run-executor';
@@ -600,7 +602,13 @@ async function intakeMessage(deps: IntakeDeps): Promise<void> {
   const accessDecision =
     msg.chatType === 'p2p'
       ? canUseDm(controls.profileConfig, controls, msg.senderId)
-      : canUseGroup(controls.profileConfig, controls, msg.chatId, msg.senderId);
+      : await canUseGroupWithOwnerPresence(
+          controls.profileConfig,
+          controls,
+          channel,
+          msg.chatId,
+          msg.senderId,
+        );
   if (!accessDecision.ok) {
     log.info('intake', 'skip-not-allowed-user', {
       scope,
@@ -767,7 +775,14 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
       ]
     : undefined;
 
-  const prompt = buildPrompt(batch, attachments, quotes, channel.botIdentity, extraInstructions);
+  const privateRules = await loadPrivateRuleInstructions(controls.profileConfig.privateRules);
+  const prompt = buildPrompt(
+    batch,
+    attachments,
+    quotes,
+    channel.botIdentity,
+    [...(privateRules.length > 0 ? privateRules : []), ...(extraInstructions ?? [])],
+  );
   log.info('prompt', 'built', {
     promptChars: prompt.length,
     quotes: quotes.length,
@@ -793,7 +808,13 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
   const accessDecision =
     firstMsg.chatType === 'p2p'
       ? canUseDm(controls.profileConfig, controls, firstMsg.senderId)
-      : canUseGroup(controls.profileConfig, controls, firstMsg.chatId, firstMsg.senderId);
+      : await canUseGroupWithOwnerPresence(
+          controls.profileConfig,
+          controls,
+          channel,
+          firstMsg.chatId,
+          firstMsg.senderId,
+        );
   const scopeContext: ScopeContext = {
     source: 'im',
     chatId,
@@ -913,10 +934,10 @@ async function runAgentBatch(deps: RunBatchDeps): Promise<void> {
 
   // For non-card modes Claude's output doesn't surface visually until either
   // a first streamed token (markdown mode) or the whole run ends (text mode).
-  // Add a "Typing" reaction to the triggering message as an instant ack, but
-  // never let that outbound API call block agent event draining.
+  // Add a contextual working reaction to the triggering message as an instant
+  // ack, but never let that outbound API call block agent event draining.
   const reactionPromise =
-    cotEnabled || replyMode === 'card' ? undefined : addWorkingReaction(channel, lastMsg.messageId);
+    cotEnabled || replyMode === 'card' ? undefined : addWorkingReaction(channel, lastMsg);
 
   try {
     if (cotEnabled) {

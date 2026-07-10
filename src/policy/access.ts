@@ -20,7 +20,9 @@ export interface AccessDecision {
     | 'comment-mention'
     | 'denied-user'
     | 'denied-chat'
-    | 'denied-admin';
+    | 'denied-admin'
+    | 'owner-not-in-chat'
+    | 'owner-check-failed';
 }
 
 export function isCreator(controls: RuntimeControls, senderId: string): boolean {

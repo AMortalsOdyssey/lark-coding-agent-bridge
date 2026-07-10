@@ -83,6 +83,10 @@ describe('profile store canonical serialization', () => {
           reason: 'same-app-local-user',
         },
       },
+      privateRules: {
+        entry: '.lark-channel-private/rules/ENTRY.md',
+        maxBytes: 64 * 1024,
+      },
       runtimeOnlyFutureField: true,
     };
 
@@ -124,6 +128,7 @@ describe('profile store canonical serialization', () => {
     expect(savedProfile.attachments).toEqual(profile.attachments);
     expect(savedProfile.comments).toEqual(profile.comments);
     expect(savedProfile.larkCli).toEqual(profile.larkCli);
+    expect(savedProfile.privateRules).toEqual(profile.privateRules);
     expect(savedProfile.permissions).toEqual({
       defaultAccess: 'workspace',
       maxAccess: 'full',

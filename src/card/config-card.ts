@@ -150,15 +150,15 @@ export function configFormCard(opts: ConfigFormOpts): object {
               content:
                 '\n**工具调用显示**\n' +
                 '_显示:可以看到 bot 跑了什么命令、读了哪些文件等过程_\n' +
-                '_隐藏:只看 agent 最终的文字答复,跳过所有工具块_',
+                '_隐藏:只看 agent 阶段性文字和最终答复,跳过所有工具块_',
             },
             {
               tag: 'select_static',
               name: 'show_tool_calls',
               initial_option: opts.showToolCalls ? 'show' : 'hide',
               options: [
-                { text: { tag: 'plain_text', content: '显示(默认)' }, value: 'show' },
-                { text: { tag: 'plain_text', content: '隐藏' }, value: 'hide' },
+                { text: { tag: 'plain_text', content: '隐藏(默认)' }, value: 'hide' },
+                { text: { tag: 'plain_text', content: '显示' }, value: 'show' },
               ],
             },
             {

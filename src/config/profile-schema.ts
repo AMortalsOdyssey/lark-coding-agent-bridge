@@ -22,6 +22,7 @@ export interface ProfileAccess {
   allowedChats: string[];
   admins: string[];
   requireMentionInGroup: boolean;
+  ownerRequiredInGroups: boolean;
 }
 
 export interface SandboxConfig {
@@ -74,6 +75,11 @@ export interface LarkCliConfig {
   };
 }
 
+export interface PrivateRulesConfig {
+  entry?: string;
+  maxBytes: number;
+}
+
 export interface ProfileConfig {
   schemaVersion: 2;
   agentKind: AgentKind;
@@ -93,6 +99,7 @@ export interface ProfileConfig {
   attachments: AttachmentConfig;
   comments: CommentConfig;
   larkCli: LarkCliConfig;
+  privateRules: PrivateRulesConfig;
 }
 
 export interface RootConfig {
@@ -153,6 +160,7 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
     attachments?: Partial<AttachmentConfig>;
     comments?: unknown;
     larkCli?: unknown;
+    privateRules?: unknown;
   };
 
   if (raw.schemaVersion !== 2) {
@@ -179,6 +187,7 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
   const workspaces = normalizeWorkspaces(raw.workspaces);
   const comments = normalizeComments(raw.comments);
   const larkCli = normalizeLarkCli(raw.larkCli);
+  const privateRules = normalizePrivateRules(raw.privateRules);
 
   return {
     schemaVersion: 2,
@@ -202,6 +211,7 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
     },
     comments,
     larkCli,
+    privateRules,
   };
 }
 
@@ -254,6 +264,7 @@ function normalizeAccess(
     allowedChats: stringArray(access?.allowedChats),
     admins: stringArray(access?.admins),
     requireMentionInGroup: access?.requireMentionInGroup ?? legacyRequireMentionInGroup ?? true,
+    ownerRequiredInGroups: access?.ownerRequiredInGroups === true,
   };
 }
 
@@ -303,6 +314,26 @@ function normalizeLarkCli(input: unknown): LarkCliConfig {
   return {
     identityPreset,
     ...(localUserImport ? { localUserImport } : {}),
+  };
+}
+
+function normalizePrivateRules(input: unknown): PrivateRulesConfig {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { maxBytes: 128 * 1024 };
+  }
+  const raw = input as {
+    entry?: unknown;
+    maxBytes?: unknown;
+  };
+  const entry = typeof raw.entry === 'string' && raw.entry.trim()
+    ? raw.entry.trim()
+    : undefined;
+  const maxBytes = typeof raw.maxBytes === 'number' && Number.isFinite(raw.maxBytes)
+    ? Math.max(4096, Math.min(Math.floor(raw.maxBytes), 512 * 1024))
+    : 128 * 1024;
+  return {
+    ...(entry ? { entry } : {}),
+    maxBytes,
   };
 }
 

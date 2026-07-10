@@ -79,6 +79,14 @@ describe('Bridge command contracts', () => {
     expect(h.workspaces.cwdFor('chat-b')).toBe(alternate);
   });
 
+  it('lets topic scopes inherit chat-level cwd bindings', async () => {
+    const h = await createHarness();
+    const workspace = await realpath(h.tmp.workspace);
+    h.workspaces.setCwd('oc-topic', workspace);
+
+    expect(h.workspaces.cwdFor('oc-topic:omt-child-topic')).toBe(workspace);
+  });
+
   it('continues to support legacy unscoped workspace aliases', async () => {
     const h = await createHarness();
     const legacy = join(h.tmp.root, 'legacy-alias');

@@ -117,6 +117,21 @@ describe('markdown stream startup failures', () => {
     await waitFor(() => h.channel.rawClient.im.v1.messageReaction.delete.mock.calls.length > 0);
   });
 
+  it('uses a contextual working reaction emoji', async () => {
+    const h = await createHarness();
+    await startTestBridge(h);
+
+    await h.channel.handlers.message?.(message('om_incident', '线上故障，马上帮我查一下'));
+    await waitFor(() => h.channel.rawClient.im.v1.messageReaction.create.mock.calls.length > 0);
+
+    expect(h.channel.rawClient.im.v1.messageReaction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { message_id: 'om_incident' },
+        data: { reaction_type: { emoji_type: 'OnIt' } },
+      }),
+    );
+  });
+
   it('logs stream failures that arrive after terminal grace expires', async () => {
     const streamFailure = deferred<void>();
     let streamProducerStarted = false;

@@ -31,8 +31,16 @@ export class WorkspaceStore {
     }
   }
 
-  cwdFor(chatId: string): string | undefined {
-    return this.data.chats[chatId]?.cwd;
+  cwdFor(scopeId: string): string | undefined {
+    const exact = this.data.chats[scopeId]?.cwd;
+    if (exact) return exact;
+
+    const topicSeparator = scopeId.indexOf(':');
+    if (topicSeparator > 0) {
+      return this.data.chats[scopeId.slice(0, topicSeparator)]?.cwd;
+    }
+
+    return undefined;
   }
 
   setCwd(chatId: string, cwd: string): void {

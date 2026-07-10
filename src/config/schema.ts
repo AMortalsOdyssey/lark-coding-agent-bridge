@@ -84,6 +84,10 @@ export interface AppAccess {
    * (/account, /config, /exit, /reconnect, /doctor, /cd, /ws, /doc,
    * /invite, /remove). */
   admins?: string[];
+  /** When true, non-owner users in allowed groups can use the bot only if
+   * the runtime owner is still a member of that group. Requires chat member
+   * read access; verification failures fail closed. */
+  ownerRequiredInGroups?: boolean;
 }
 
 export interface AppPreferences {
@@ -100,8 +104,8 @@ export interface AppPreferences {
   messageReplyMigrated?: boolean;
   /**
    * Whether to render tool-call blocks (Bash / Read / Edit / ...) in the
-   * output. Default true. Turn off if you only care about Claude's final
-   * text answer and want to hide the "工具调用过程".
+   * output. Default false so chat replies stay focused on progress and final
+   * answers. Turn on only when you need to inspect the "工具调用过程".
    */
   showToolCalls?: boolean;
   /**
@@ -213,7 +217,7 @@ export function getMessageReplyMode(cfg: AppConfig): MessageReplyMode {
 
 /** Resolve the show-tool-calls preference with default fallback. */
 export function getShowToolCalls(cfg: AppConfig): boolean {
-  return cfg.preferences?.showToolCalls !== false;
+  return cfg.preferences?.showToolCalls === true;
 }
 
 export function getCotMessages(cfg: AppConfig): CotMessagesMode {

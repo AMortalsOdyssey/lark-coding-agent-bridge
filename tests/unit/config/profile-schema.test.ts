@@ -96,6 +96,7 @@ describe('profile schema', () => {
       allowedChats: [],
       admins: [],
       requireMentionInGroup: true,
+      ownerRequiredInGroups: false,
     });
   });
 
@@ -131,8 +132,26 @@ describe('profile schema', () => {
     });
 
     expect(cfg.larkCli).toEqual({ identityPreset: 'bot-only' });
+    expect(cfg.privateRules).toEqual({ maxBytes: 128 * 1024 });
     expect(cfg.larkCli).not.toHaveProperty('configSource');
     expect(cfg.larkCli).not.toHaveProperty('workspaceMode');
+  });
+
+  it('normalizes private rules entry without preserving oversized byte limits', () => {
+    const cfg = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      privateRules: {
+        entry: ' .lark-channel-private/rules/ENTRY.md ',
+        maxBytes: 10_000_000,
+      },
+    });
+
+    expect(cfg.privateRules).toEqual({
+      entry: '.lark-channel-private/rules/ENTRY.md',
+      maxBytes: 512 * 1024,
+    });
   });
 
   it('normalizes lark-cli user identity import state without preserving invalid fields', () => {

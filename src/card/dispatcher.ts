@@ -7,7 +7,8 @@ import type { ProcessPool } from '../bot/process-pool';
 import type { CallbackAuth } from './callback-auth';
 import { runCommandHandler, type CommandContext, type Controls } from '../commands';
 import { log } from '../core/logger';
-import { canUseDm, canUseGroup } from '../policy/access';
+import { canUseDm } from '../policy/access';
+import { canUseGroupWithOwnerPresence } from '../policy/group-owner';
 import type { RunExecutor } from '../runtime/run-executor';
 import type { SessionCatalog } from '../session/catalog';
 import type { SessionStore } from '../session/store';
@@ -67,7 +68,13 @@ export async function handleCardAction(deps: CardDispatchDeps): Promise<void> {
   const accessDecision =
     mode === 'p2p'
       ? canUseDm(deps.controls.profileConfig, deps.controls, operatorId)
-      : canUseGroup(deps.controls.profileConfig, deps.controls, chatId, operatorId);
+      : await canUseGroupWithOwnerPresence(
+          deps.controls.profileConfig,
+          deps.controls,
+          deps.channel,
+          chatId,
+          operatorId,
+        );
   if (!accessDecision.ok) {
     log.info('cardAction', 'skip-not-allowed-user', {
       operator: operatorId.slice(-6),
