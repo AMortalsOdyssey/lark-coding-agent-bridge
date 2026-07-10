@@ -25,6 +25,19 @@ describe('owner refresh', () => {
     expect(source.calls).toBe(1);
   });
 
+  it('uses an explicit owner without calling the application API', async () => {
+    const controls: RuntimeControls = { ownerRefreshState: 'unknown' };
+    const source = fakeAppInfoSource([new Error('must not be called')]);
+
+    await refreshOwnerControls(controls, source, 'cli_test', 'ou_explicit');
+
+    expect(controls).toMatchObject({
+      botOwnerId: 'ou_explicit',
+      ownerRefreshState: 'ok',
+    });
+    expect(source.calls).toBe(0);
+  });
+
   it('keeps cached owner available when a refresh fails', async () => {
     const controls: RuntimeControls = {
       botOwnerId: 'ou_previous',
@@ -69,6 +82,25 @@ describe('owner refresh', () => {
     expect(controls.botOwnerId).toBe('ou_second');
     expect(source.calls).toBe(2);
 
+    controller.stop();
+  });
+
+  it('does not schedule API refreshes for an explicit owner', async () => {
+    vi.useFakeTimers();
+    const controls: RuntimeControls = { ownerRefreshState: 'unknown' };
+    const source = fakeAppInfoSource([new Error('must not be called')]);
+    const controller = createOwnerRefreshController({
+      controls,
+      source,
+      appId: 'cli_test',
+      ownerOpenId: 'ou_explicit',
+    });
+
+    await controller.start();
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+    expect(controls.botOwnerId).toBe('ou_explicit');
+    expect(source.calls).toBe(0);
     controller.stop();
   });
 });

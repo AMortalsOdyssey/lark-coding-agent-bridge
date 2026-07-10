@@ -430,6 +430,7 @@ export async function startChannel(deps: StartChannelDeps): Promise<BridgeChanne
     controls,
     source: channel,
     appId: cfg.accounts.app.id,
+    ownerOpenId: controls.profileConfig.access.ownerOpenId,
   });
   await ownerRefresh.start();
   const knownChatsRefresh = startKnownChatsRefreshTimer(channel, controls);

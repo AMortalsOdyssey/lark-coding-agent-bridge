@@ -218,6 +218,7 @@ export async function runStart(opts: StartOptions): Promise<void> {
                 currentControls,
                 target,
                 currentControls.cfg.accounts.app.id,
+                currentControls.profileConfig.access.ownerOpenId,
               );
             },
             configPath,

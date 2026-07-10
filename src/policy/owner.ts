@@ -14,6 +14,7 @@ export interface OwnerRefreshControllerOptions {
   controls: RuntimeControls;
   source: AppInfoSource;
   appId: string;
+  ownerOpenId?: string;
   intervalMs?: number;
 }
 
@@ -26,7 +27,16 @@ export async function refreshOwnerControls(
   controls: RuntimeControls,
   source: AppInfoSource,
   appId: string,
+  ownerOpenId?: string,
 ): Promise<void> {
+  if (ownerOpenId) {
+    controls.botOwnerId = ownerOpenId;
+    controls.ownerRefreshState = 'ok';
+    controls.ownerRefreshedAt = Date.now();
+    delete controls.ownerRefreshError;
+    return;
+  }
+
   try {
     const ownerId = await fetchOwnerId(source);
     controls.botOwnerId = ownerId;
@@ -52,7 +62,8 @@ export function createOwnerRefreshController(
 
   return {
     async start(): Promise<void> {
-      await refreshOwnerControls(opts.controls, opts.source, opts.appId);
+      await refreshOwnerControls(opts.controls, opts.source, opts.appId, opts.ownerOpenId);
+      if (opts.ownerOpenId) return;
       timer = setInterval(() => {
         void refreshOwnerControls(opts.controls, opts.source, opts.appId);
       }, intervalMs);
