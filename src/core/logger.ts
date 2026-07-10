@@ -166,6 +166,7 @@ const ID_KEYS = new Set([
 ]);
 
 const MAX_LOG_STRING_CHARS = 4096;
+const MAX_LOG_VALUE_DEPTH = 16;
 const CREDENTIAL_JSON_FIELD_RE =
   /("(?:secret|app_secret|appSecret|token|access_token|tenant_access_token|app_access_token|authorization)"\s*:\s*")[^"]*(")/gi;
 const ESCAPED_CREDENTIAL_JSON_FIELD_RE =
@@ -179,6 +180,11 @@ interface SanitizeOptions {
   redactIds: boolean;
 }
 
+interface SanitizeState {
+  active: WeakSet<object>;
+  depth: number;
+}
+
 const LOCAL_LOG_SANITIZE: SanitizeOptions = { redactIds: false };
 const EXTERNAL_SANITIZE: SanitizeOptions = { redactIds: true };
 
@@ -187,8 +193,9 @@ function sanitizeLogEntry(
   options: SanitizeOptions = EXTERNAL_SANITIZE,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  const state: SanitizeState = { active: new WeakSet(), depth: 0 };
   for (const [key, value] of Object.entries(entry)) {
-    out[key] = sanitizeLogValue(key, value, options);
+    out[key] = sanitizeLogValue(key, value, options, state);
   }
   return out;
 }
@@ -197,6 +204,7 @@ function sanitizeLogValue(
   key: string,
   value: unknown,
   options: SanitizeOptions = EXTERNAL_SANITIZE,
+  state: SanitizeState = { active: new WeakSet(), depth: 0 },
 ): unknown {
   const normalizedKey = key.startsWith('_') ? key.slice(1) : key;
   if (value === undefined) return undefined;
@@ -207,15 +215,26 @@ function sanitizeLogValue(
   }
   if (RESOURCE_ID_KEYS.has(normalizedKey)) return '[REDACTED_RESOURCE]';
   if (options.redactIds && ID_KEYS.has(normalizedKey)) return redactId(value);
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeLogValue(key, item, options));
-  }
   if (value && typeof value === 'object') {
-    const nested: Record<string, unknown> = {};
-    for (const [nestedKey, nestedValue] of Object.entries(value)) {
-      nested[nestedKey] = sanitizeLogValue(nestedKey, nestedValue, options);
+    if (state.active.has(value)) return '[Circular]';
+    if (state.depth >= MAX_LOG_VALUE_DEPTH) return '[MaxDepth]';
+
+    state.active.add(value);
+    const childState: SanitizeState = { active: state.active, depth: state.depth + 1 };
+    try {
+      if (Array.isArray(value)) {
+        return value.map((item) => sanitizeLogValue(key, item, options, childState));
+      }
+      const nested: Record<string, unknown> = {};
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        nested[nestedKey] = sanitizeLogValue(nestedKey, nestedValue, options, childState);
+      }
+      return nested;
+    } catch {
+      return '[Unserializable]';
+    } finally {
+      state.active.delete(value);
     }
-    return nested;
   }
   if (typeof value === 'string') {
     const redacted = redactDiagnosticText(value);

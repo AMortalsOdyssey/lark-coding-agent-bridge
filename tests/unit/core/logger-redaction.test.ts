@@ -67,6 +67,24 @@ describe('logger redaction', () => {
     expect(text).not.toContain('/tmp/lark-channel/secret/file.txt');
   });
 
+  it('does not throw when sdk errors contain circular object graphs', async () => {
+    const request: Record<string, unknown> = { method: 'GET' };
+    const response: Record<string, unknown> = { status: 400, request };
+    request.response = response;
+
+    expect(() =>
+      log.warn('sdk', 'error', {
+        args: [{ message: 'attachment fetch failed', request, response }],
+      }),
+    ).not.toThrow();
+    log.info('intake', 'continued-after-sdk-error', { ok: true });
+    await flushLogger();
+
+    const text = await readTodayLog();
+    expect(text).toContain('[Circular]');
+    expect(text).toContain('continued-after-sdk-error');
+  });
+
   it('redacts credentials inside stringified JSON sdk args', async () => {
     log.warn('sdk', 'error', {
       args: [
