@@ -82,6 +82,7 @@ describe('agent prompt builder', () => {
         chatId: 'oc_dm',
         chatType: 'p2p',
         senderId: 'ou_owner',
+        senderRole: 'owner',
         source: 'im',
       },
       userInput: 'hello',
@@ -91,6 +92,7 @@ describe('agent prompt builder', () => {
       chatId: 'oc_dm',
       chatType: 'p2p',
       senderId: 'ou_owner',
+      senderRole: 'owner',
       source: 'im',
     });
     expect(readSection(prompt, 'user_input')).toEqual({ text: 'hello' });

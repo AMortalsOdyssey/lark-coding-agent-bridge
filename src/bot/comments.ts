@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { CommentEvent, LarkChannel } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
+import { promptSection } from '../agent/prompt';
 import type { AgentAdapter, AgentEvent } from '../agent/types';
 import { getAgentStopGraceMs } from '../config/schema';
 import type { Controls } from '../commands';
@@ -148,7 +149,6 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
     questionPreview: preview(ctx.question),
     hasQuote: Boolean(ctx.quote),
   });
-  const prompt = buildCommentPrompt(target, ctx);
   const access: AccessDecision = isOwner(
     controls.profileConfig,
     controls,
@@ -156,6 +156,11 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
   )
     ? { ok: true, reason: 'owner' }
     : { ok: true, reason: 'comment-mention' };
+  const prompt = buildCommentPrompt(
+    target,
+    ctx,
+    access.reason === 'owner' ? 'owner' : 'member',
+  );
   const workspace = await resolveCommentWorkingDirectory(
     workspaces.cwdFor(docSessionScopeId) ?? workspaces.cwdFor(legacyDocSessionScopeId),
     controls.profileConfig.workspaces.default,
@@ -476,9 +481,14 @@ export function extractCommentQuestionFromReplies(
 export function buildCommentPrompt(
   target: ResolvedTarget,
   ctx: CommentContext,
+  senderRole?: 'owner' | 'member',
 ): string {
   const docUrl = `https://feishu.cn/${target.fileType}/${target.fileToken}`;
   const parts: string[] = [];
+  if (senderRole) {
+    parts.push(promptSection('bridge_context', { source: 'comment', senderRole }));
+    parts.push('');
+  }
   parts.push('我在飞书云文档里被 @了。文档信息：');
   parts.push(`- 链接：${docUrl}`);
   parts.push(`- file_token：${target.fileToken}`);

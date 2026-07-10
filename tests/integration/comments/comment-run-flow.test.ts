@@ -66,6 +66,16 @@ describe('comment run flow', () => {
     expect(h.inThreadReplies).toEqual(['answer one']);
   });
 
+  it('marks an explicitly verified owner in the comment prompt', async () => {
+    const h = await createHarness();
+
+    await handleCommentMention(h.deps(event({ operator: { openId: 'ou-owner' } })));
+
+    expect(h.agent.runOptions).toHaveLength(1);
+    expect(h.agent.runOptions[0]?.prompt).toContain('"senderRole":"owner"');
+    expect(h.agent.runOptions[0]?.sandbox).toBe('danger-full-access');
+  });
+
   it('includes the prior thread replies as context when @-ed on a later reply', async () => {
     const h = await createHarness({
       commentReplies: [

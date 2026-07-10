@@ -149,6 +149,7 @@ describe('markdown stream startup failures', () => {
 
     await waitFor(() => h.agent.runOptions.length === 1);
     expect(h.agent.runOptions[0]?.sandbox).toBe('danger-full-access');
+    expect(h.agent.runOptions[0]?.prompt).toContain('"senderRole":"owner"');
   });
 
   it('logs stream failures that arrive after terminal grace expires', async () => {

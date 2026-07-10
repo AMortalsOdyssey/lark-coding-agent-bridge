@@ -10,6 +10,8 @@ export interface BridgePromptContext {
   chatId: string;
   chatType: string;
   senderId: string;
+  /** Trusted access role resolved by the bridge before the agent runs. */
+  senderRole?: 'owner' | 'member';
   senderName?: string;
   /** Whether the sender is a human user or another bot ('app' sender). */
   senderType?: 'user' | 'bot';
