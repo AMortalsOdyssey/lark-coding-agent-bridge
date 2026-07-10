@@ -67,12 +67,15 @@ describe('comment run flow', () => {
   });
 
   it('marks an explicitly verified owner in the comment prompt', async () => {
-    const h = await createHarness();
+    const h = await createHarness({ agentKind: 'codex' });
+    h.profileConfig.preferences.model = 'gpt-5.6-sol';
 
     await handleCommentMention(h.deps(event({ operator: { openId: 'ou-owner' } })));
 
     expect(h.agent.runOptions).toHaveLength(1);
     expect(h.agent.runOptions[0]?.prompt).toContain('"senderRole":"owner"');
+    expect(h.agent.runOptions[0]?.prompt).toContain('"configuredModel":"gpt-5.6-sol"');
+    expect(h.agent.runOptions[0]?.model).toBe('gpt-5.6-sol');
     expect(h.agent.runOptions[0]?.sandbox).toBe('danger-full-access');
   });
 

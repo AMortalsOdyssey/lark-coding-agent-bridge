@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { CommentEvent, LarkChannel } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
+import { resolveModelArg } from '../agent/models';
 import { promptSection } from '../agent/prompt';
 import type { AgentAdapter, AgentEvent } from '../agent/types';
 import { getAgentStopGraceMs } from '../config/schema';
@@ -156,10 +157,15 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
   )
     ? { ok: true, reason: 'owner' }
     : { ok: true, reason: 'comment-mention' };
+  const configuredModel = resolveModelArg(
+    controls.profileConfig.agentKind,
+    controls.profileConfig.preferences.model,
+  );
   const prompt = buildCommentPrompt(
     target,
     ctx,
     access.reason === 'owner' ? 'owner' : 'member',
+    configuredModel,
   );
   const workspace = await resolveCommentWorkingDirectory(
     workspaces.cwdFor(docSessionScopeId) ?? workspaces.cwdFor(legacyDocSessionScopeId),
@@ -273,6 +279,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
       const execution = await deps.executor.submit({
         scopeId: runScopeId,
         policy,
+        model: configuredModel,
         sessionId,
         threadId,
         stopGraceMs: getAgentStopGraceMs(controls.cfg),
@@ -482,11 +489,18 @@ export function buildCommentPrompt(
   target: ResolvedTarget,
   ctx: CommentContext,
   senderRole?: 'owner' | 'member',
+  configuredModel?: string,
 ): string {
   const docUrl = `https://feishu.cn/${target.fileType}/${target.fileToken}`;
   const parts: string[] = [];
   if (senderRole) {
-    parts.push(promptSection('bridge_context', { source: 'comment', senderRole }));
+    parts.push(
+      promptSection('bridge_context', {
+        source: 'comment',
+        senderRole,
+        ...(configuredModel ? { configuredModel } : {}),
+      }),
+    );
     parts.push('');
   }
   parts.push('我在飞书云文档里被 @了。文档信息：');

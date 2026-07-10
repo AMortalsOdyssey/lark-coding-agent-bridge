@@ -137,6 +137,7 @@ describe('markdown stream startup failures', () => {
     h.profileConfig.access.ownerOpenId = 'ou_owner';
     h.profileConfig.access.groupAccessMode = 'owner-only';
     h.profileConfig.access.requireMentionInGroup = true;
+    h.profileConfig.preferences.model = 'gpt-5.6-sol';
     await startTestBridge(h);
 
     await h.channel.handlers.message?.({
@@ -150,6 +151,8 @@ describe('markdown stream startup failures', () => {
     await waitFor(() => h.agent.runOptions.length === 1);
     expect(h.agent.runOptions[0]?.sandbox).toBe('danger-full-access');
     expect(h.agent.runOptions[0]?.prompt).toContain('"senderRole":"owner"');
+    expect(h.agent.runOptions[0]?.prompt).toContain('"configuredModel":"gpt-5.6-sol"');
+    expect(h.agent.runOptions[0]?.model).toBe('gpt-5.6-sol');
   });
 
   it('logs stream failures that arrive after terminal grace expires', async () => {

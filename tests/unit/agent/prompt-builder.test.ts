@@ -83,6 +83,7 @@ describe('agent prompt builder', () => {
         chatType: 'p2p',
         senderId: 'ou_owner',
         senderRole: 'owner',
+        configuredModel: 'gpt-5.6-sol',
         source: 'im',
       },
       userInput: 'hello',
@@ -93,6 +94,7 @@ describe('agent prompt builder', () => {
       chatType: 'p2p',
       senderId: 'ou_owner',
       senderRole: 'owner',
+      configuredModel: 'gpt-5.6-sol',
       source: 'im',
     });
     expect(readSection(prompt, 'user_input')).toEqual({ text: 'hello' });
