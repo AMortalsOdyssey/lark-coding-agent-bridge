@@ -77,7 +77,11 @@ export interface RecordRunSessionEventInput {
 export async function startRunFlow(input: StartRunFlowInput): Promise<StartRunFlowResult> {
   const requestedCwd =
     input.workspaces.cwdFor(input.scopeId) ?? input.profileConfig.workspaces.default ?? '';
-  const workspace = await resolveWorkingDirectory(requestedCwd);
+  const workspace = await resolveWorkingDirectory(requestedCwd, {
+    ...(input.access.reason === 'owner'
+      ? {}
+      : { allowedRoot: input.profileConfig.workspaces.allowedRoot }),
+  });
   if (!workspace.ok) {
     return {
       ok: false,

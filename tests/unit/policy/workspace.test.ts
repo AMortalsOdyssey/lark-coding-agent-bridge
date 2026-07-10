@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -51,6 +51,30 @@ describe('working directory resolver', () => {
     await expect(resolveWorkingDirectory(tmpdir())).resolves.toMatchObject({
       ok: false,
       reason: 'temp-root',
+    });
+  });
+
+  it('enforces an allowed root using real paths and blocks symlink escapes', async () => {
+    const base = await makeTmp();
+    const allowed = join(base, 'allowed');
+    const inside = join(allowed, 'inside');
+    const outside = join(base, 'outside');
+    const escape = join(allowed, 'escape');
+    await mkdir(inside, { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await symlink(outside, escape, 'dir');
+
+    await expect(resolveWorkingDirectory(inside, { allowedRoot: allowed })).resolves.toMatchObject({
+      ok: true,
+      cwdRealpath: await realpath(inside),
+    });
+    await expect(resolveWorkingDirectory(outside, { allowedRoot: allowed })).resolves.toMatchObject({
+      ok: false,
+      reason: 'cwd-outside-allowed-root',
+    });
+    await expect(resolveWorkingDirectory(escape, { allowedRoot: allowed })).resolves.toMatchObject({
+      ok: false,
+      reason: 'cwd-outside-allowed-root',
     });
   });
 });

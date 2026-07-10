@@ -9,6 +9,7 @@ import {
 } from '../config/permissions';
 import type { ProfileConfig } from '../config/profile-schema';
 import type { AccessDecision } from './access';
+import { isPathWithinRoot } from './path-boundary';
 import {
   accessPolicyDigest,
   attachmentPolicyConfigDigest,
@@ -76,6 +77,7 @@ export interface RunPolicyReject {
   rejectReason: {
     code:
       | 'access-denied'
+      | 'cwd-outside-allowed-root'
       | 'folder-allowlist-unverified'
       | 'required-attachment-rejected';
     userVisible: string;
@@ -91,6 +93,12 @@ export function evaluateRunPolicy(input: RunPolicyInput): RunPolicyResult {
     return reject('access-denied', '当前用户无权发起运行。');
   }
 
+  const ownerRun = input.access.reason === 'owner';
+  const allowedRoot = input.profileConfig.workspaces.allowedRoot;
+  if (allowedRoot && !ownerRun && !isPathWithinRoot(input.cwdRealpath, allowedRoot)) {
+    return reject('cwd-outside-allowed-root', '所选工作目录超出此 profile 的允许范围。');
+  }
+
   if (input.scope.resourceBindings?.some((binding) => binding.kind === 'folder' && !binding.verified)) {
     return reject('folder-allowlist-unverified', '暂不支持 folder allowlist，已拒绝运行。');
   }
@@ -104,16 +112,17 @@ export function evaluateRunPolicy(input: RunPolicyInput): RunPolicyResult {
     return reject('required-attachment-rejected', '必需附件未通过校验，已拒绝运行。');
   }
 
-  const accessMode = clampAccess(
-    input.profileConfig.permissions.defaultAccess,
-    input.profileConfig.permissions.maxAccess,
-    input.capability.permissions.maxAccess,
-  );
+  const accessMode = ownerRun
+    ? 'full'
+    : clampAccess(
+        input.profileConfig.permissions.defaultAccess,
+        input.profileConfig.permissions.maxAccess,
+        input.capability.permissions.maxAccess,
+      );
   const sandbox = accessToCodexSandbox(accessMode);
-  const permissionMode = accessToClaudePermissionMode(
-    accessMode,
-    input.profileConfig.permissions,
-  );
+  const permissionMode = ownerRun
+    ? accessToClaudePermissionMode('full')
+    : accessToClaudePermissionMode(accessMode, input.profileConfig.permissions);
   const resourceDigest = resourceScopeDigest({
     source: input.scope.source,
     chatId: input.scope.chatId,

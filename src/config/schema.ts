@@ -76,6 +76,9 @@ export type CotMessagesMode = 'off' | 'brief' | 'detailed';
  * owner identity is refreshed from Lark rather than stored in config.json.
  */
 export interface AppAccess {
+  /** Application-scoped open_id for the absolute owner. The owner bypasses
+   * chat allowlists, mention requirements, workspace roots, and run caps. */
+  ownerOpenId?: string;
   /** open_id allowlist for DM senders. Group senders are gated by chat. */
   allowedUsers?: string[];
   /** chat_id allowlist for groups the bot responds in. Does not apply to p2p. */
@@ -84,9 +87,11 @@ export interface AppAccess {
    * (/account, /config, /exit, /reconnect, /doctor, /cd, /ws, /doc,
    * /invite, /remove). */
   admins?: string[];
-  /** When true, non-owner users in allowed groups can use the bot only if
-   * the runtime owner is still a member of that group. Requires chat member
-   * read access; verification failures fail closed. */
+  /** Strict group behavior. `legacy` preserves upstream behavior;
+   * `owner-only` rejects every non-owner; `owner-present` permits users in
+   * allowed chats only while the owner remains a member. */
+  groupAccessMode?: 'legacy' | 'owner-only' | 'owner-present';
+  /** Legacy local flag, migrated to groupAccessMode=owner-present. */
   ownerRequiredInGroups?: boolean;
 }
 

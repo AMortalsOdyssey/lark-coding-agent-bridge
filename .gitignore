@@ -21,4 +21,5 @@ tests-smoke/
 
 # Machine-local bridge policy overlays. These may contain private user, chat,
 # workspace, and operational boundaries and must not be committed.
+.lark-channel/
 .lark-channel-private/

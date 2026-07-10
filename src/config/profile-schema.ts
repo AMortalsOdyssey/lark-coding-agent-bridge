@@ -14,16 +14,22 @@ import {
 } from './permissions';
 
 export type AgentKind = 'claude' | 'codex';
+export type GroupAccessMode = 'legacy' | 'owner-only' | 'owner-present';
 export type SandboxMode = CodexSandboxMode;
 export type { AccessMode, PermissionConfig, PermissionSource };
 
 export interface ProfileAccess {
+  ownerOpenId?: string;
   allowedUsers: string[];
   allowedChats: string[];
   admins: string[];
   requireMentionInGroup: boolean;
-  ownerRequiredInGroups: boolean;
+  groupAccessMode: GroupAccessMode;
 }
+
+type ProfileAccessInput = Partial<ProfileAccess> & {
+  ownerRequiredInGroups?: boolean;
+};
 
 export interface SandboxConfig {
   default?: SandboxMode;
@@ -91,6 +97,7 @@ export interface ProfileConfig {
   access: ProfileAccess;
   workspaces: {
     default?: string;
+    allowedRoot?: string;
   };
   sandbox: SandboxConfig;
   permissions: PermissionConfig;
@@ -119,7 +126,7 @@ export interface CreateDefaultProfileConfigInput {
     app: AppCredentials;
   };
   preferences?: AppPreferences;
-  access?: Partial<ProfileAccess>;
+  access?: ProfileAccessInput;
   sandbox?: Partial<SandboxConfig>;
   permissions?: Partial<PermissionConfig>;
   codex?: CodexConfig;
@@ -144,10 +151,11 @@ export function normalizeProfileConfig(input: unknown): ProfileConfig {
     agentKind?: unknown;
     accounts?: unknown;
     secrets?: SecretsConfig;
-    preferences?: (AppPreferences & { access?: Partial<ProfileAccess> }) | undefined;
-    access?: Partial<ProfileAccess>;
+    preferences?: (AppPreferences & { access?: ProfileAccessInput }) | undefined;
+    access?: ProfileAccessInput;
     workspaces?: {
       default?: unknown;
+      allowedRoot?: unknown;
       // Legacy workspace authorization fields are accepted for config
       // compatibility only; normalizeWorkspaces drops them.
       trusted?: unknown;
@@ -256,20 +264,37 @@ function isMessageReply(value: unknown): value is MessageReplyMode {
 }
 
 function normalizeAccess(
-  access: Partial<ProfileAccess> | undefined,
+  access: ProfileAccessInput | undefined,
   legacyRequireMentionInGroup: boolean | undefined,
 ): ProfileAccess {
+  const ownerOpenId = typeof access?.ownerOpenId === 'string' && access.ownerOpenId.trim()
+    ? access.ownerOpenId.trim()
+    : undefined;
+  const groupAccessMode = normalizeGroupAccessMode(
+    access?.groupAccessMode,
+    access?.ownerRequiredInGroups,
+  );
   return {
+    ...(ownerOpenId ? { ownerOpenId } : {}),
     allowedUsers: stringArray(access?.allowedUsers),
     allowedChats: stringArray(access?.allowedChats),
     admins: stringArray(access?.admins),
     requireMentionInGroup: access?.requireMentionInGroup ?? legacyRequireMentionInGroup ?? true,
-    ownerRequiredInGroups: access?.ownerRequiredInGroups === true,
+    groupAccessMode,
   };
+}
+
+function normalizeGroupAccessMode(
+  value: unknown,
+  legacyOwnerRequired: boolean | undefined,
+): GroupAccessMode {
+  if (value === 'owner-only' || value === 'owner-present' || value === 'legacy') return value;
+  return legacyOwnerRequired === true ? 'owner-present' : 'legacy';
 }
 
 function normalizeWorkspaces(input: {
   default?: unknown;
+  allowedRoot?: unknown;
   trusted?: unknown;
   trustedRoots?: unknown;
   riskFlags?: unknown;
@@ -277,7 +302,13 @@ function normalizeWorkspaces(input: {
   const defaultWorkspace = typeof input?.default === 'string' && input.default.trim()
     ? input.default.trim()
     : undefined;
-  return defaultWorkspace ? { default: defaultWorkspace } : {};
+  const allowedRoot = typeof input?.allowedRoot === 'string' && input.allowedRoot.trim()
+    ? input.allowedRoot.trim()
+    : undefined;
+  return {
+    ...(defaultWorkspace ? { default: defaultWorkspace } : {}),
+    ...(allowedRoot ? { allowedRoot } : {}),
+  };
 }
 
 function normalizeCodex(input: CodexConfig & { flags?: unknown }): CodexConfig {

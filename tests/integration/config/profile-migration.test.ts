@@ -87,7 +87,7 @@ describe('profile v2 migration', () => {
       allowedChats: ['oc_allowed'],
       admins: ['ou_admin'],
       requireMentionInGroup: false,
-      ownerRequiredInGroups: false,
+      groupAccessMode: 'legacy',
     });
     expect(next.profiles.claude?.preferences).toEqual({ messageReply: 'card' });
     expect(next.profiles.claude?.workspaces).toEqual({});

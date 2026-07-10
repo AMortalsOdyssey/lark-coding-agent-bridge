@@ -64,7 +64,7 @@ describe('profile store canonical serialization', () => {
           maxAccess: 'full',
         },
       }),
-      workspaces: { default: '/repo' },
+      workspaces: { default: '/repo/project', allowedRoot: '/repo' },
       attachments: {
         maxCount: 2,
         maxBytes: 1024,

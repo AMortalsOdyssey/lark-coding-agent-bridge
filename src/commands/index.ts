@@ -49,6 +49,8 @@ import {
   canRunAdminCommand,
   canUseDm,
   canUseGroup,
+  effectiveOwnerOpenId,
+  isOwner,
   type OwnerRefreshState,
 } from '../policy/access';
 import { setSecret } from '../config/keystore';
@@ -381,7 +383,9 @@ async function handleCd(args: string, ctx: CommandContext): Promise<void> {
     return;
   }
   const absolute = expandTilde(input);
-  const workspace = await resolveWorkingDirectory(absolute);
+  const workspace = await resolveWorkingDirectory(absolute, {
+    allowedRoot: allowedRootForActor(ctx),
+  });
   if (!workspace.ok) {
     await reply(ctx, workspace.userVisible);
     return;
@@ -446,7 +450,9 @@ async function handleWsUse(name: string, ctx: CommandContext): Promise<void> {
     await reply(ctx, `未找到工作目录别名：\`${name}\``);
     return;
   }
-  const workspace = await resolveWorkingDirectory(cwd);
+  const workspace = await resolveWorkingDirectory(cwd, {
+    allowedRoot: allowedRootForActor(ctx),
+  });
   if (!workspace.ok) {
     await reply(ctx, workspace.userVisible);
     return;
@@ -479,10 +485,16 @@ const WORKSPACE_NAME_SEPARATOR = '\u001f';
 function scopedWorkspaceName(ctx: CommandContext, name: string): string {
   return [
     ctx.controls.profile,
-    ctx.controls.botOwnerId ?? 'owner-unknown',
+    effectiveOwnerOpenId(ctx.controls.profileConfig, ctx.controls) ?? 'owner-unknown',
     ctx.scope,
     name,
   ].join(WORKSPACE_NAME_SEPARATOR);
+}
+
+function allowedRootForActor(ctx: CommandContext): string | undefined {
+  return isOwner(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId)
+    ? undefined
+    : ctx.controls.profileConfig.workspaces.allowedRoot;
 }
 
 function workspaceAliasKeys(ctx: CommandContext, name: string): string[] {
@@ -828,7 +840,9 @@ async function handleStatus(_args: string, ctx: CommandContext): Promise<void> {
 
 function formatOwnerState(ctx: CommandContext): string {
   const state = ctx.controls.ownerRefreshState;
-  const owner = ctx.controls.botOwnerId ? 'present' : 'missing';
+  const owner = effectiveOwnerOpenId(ctx.controls.profileConfig, ctx.controls)
+    ? 'present'
+    : 'missing';
   const refreshed = ctx.controls.ownerRefreshedAt
     ? ` refreshed=${new Date(ctx.controls.ownerRefreshedAt).toISOString()}`
     : '';
@@ -1086,7 +1100,16 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
     return;
   }
 
-  const workspace = await resolveWorkingDirectory(requestedCwd);
+  const commandAccess = canRunAdminCommand(
+    ctx.controls.profileConfig,
+    ctx.controls,
+    ctx.msg.senderId,
+  );
+  const workspace = await resolveWorkingDirectory(requestedCwd, {
+    ...(commandAccess.reason === 'owner'
+      ? {}
+      : { allowedRoot: ctx.controls.profileConfig.workspaces.allowedRoot }),
+  });
   if (!workspace.ok) {
     await reply(
       ctx,
@@ -1131,7 +1154,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
     prompt: DOCTOR_ECHO_PROMPT,
     requestedCwd,
     cwdRealpath: workspace.cwdRealpath,
-    access: canRunAdminCommand(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId),
+    access: commandAccess,
     capability,
     profileConfig: ctx.controls.profileConfig,
     now,

@@ -49,7 +49,8 @@ export function accessPolicyDigest(access: ProfileConfig['access']): string {
     admins: [...access.admins].sort(),
     allowedChats: [...access.allowedChats].sort(),
     allowedUsers: [...access.allowedUsers].sort(),
-    ownerRequiredInGroups: access.ownerRequiredInGroups,
+    ownerOpenId: access.ownerOpenId ?? null,
+    groupAccessMode: access.groupAccessMode,
     requireMentionInGroup: access.requireMentionInGroup,
   });
 }

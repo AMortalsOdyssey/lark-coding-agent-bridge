@@ -132,6 +132,25 @@ describe('markdown stream startup failures', () => {
     );
   });
 
+  it('lets an explicit owner trigger a group run without mentioning the bot', async () => {
+    const h = await createHarness();
+    h.profileConfig.access.ownerOpenId = 'ou_owner';
+    h.profileConfig.access.groupAccessMode = 'owner-only';
+    h.profileConfig.access.requireMentionInGroup = true;
+    await startTestBridge(h);
+
+    await h.channel.handlers.message?.({
+      ...message('om_owner', '直接执行这个任务'),
+      chatId: 'oc_any_group',
+      chatType: 'group',
+      senderId: 'ou_owner',
+      mentionedBot: false,
+    });
+
+    await waitFor(() => h.agent.runOptions.length === 1);
+    expect(h.agent.runOptions[0]?.sandbox).toBe('danger-full-access');
+  });
+
   it('logs stream failures that arrive after terminal grace expires', async () => {
     const streamFailure = deferred<void>();
     let streamProducerStarted = false;

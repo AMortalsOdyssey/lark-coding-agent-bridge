@@ -414,7 +414,7 @@ describe('profile runtime resolver', () => {
       allowedChats: ['oc_allowed'],
       admins: ['ou_admin'],
       requireMentionInGroup: false,
-      ownerRequiredInGroups: false,
+      groupAccessMode: 'legacy',
     });
     expect(runtime.profileConfig.preferences).toMatchObject({
       messageReply: 'card',
@@ -431,7 +431,7 @@ describe('profile runtime resolver', () => {
       allowedChats: ['oc_allowed'],
       admins: ['ou_admin'],
       requireMentionInGroup: false,
-      ownerRequiredInGroups: false,
+      groupAccessMode: 'legacy',
     });
     expect(saved.profiles.claude?.preferences).toMatchObject({
       messageReply: 'card',

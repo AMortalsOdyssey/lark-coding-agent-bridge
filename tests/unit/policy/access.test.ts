@@ -5,6 +5,7 @@ import {
   canUseDm,
   canUseGroup,
   isCreator,
+  isOwner,
   type RuntimeControls,
 } from '../../../src/policy/access';
 import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema';
@@ -22,6 +23,25 @@ describe('access policy', () => {
     expect(canUseDm(profile, ownerControls, 'ou_owner').ok).toBe(true);
     expect(canUseGroup(profile, ownerControls, 'chat_any', 'ou_owner').ok).toBe(true);
     expect(canRunAdminCommand(profile, ownerControls, 'ou_owner').ok).toBe(true);
+  });
+
+  it('lets the explicit profile owner bypass refresh, chat, and admin restrictions', () => {
+    const profile = profileWithAccess({
+      ownerOpenId: 'ou_explicit_owner',
+      groupAccessMode: 'owner-only',
+    });
+    const controls: RuntimeControls = { ownerRefreshState: 'unknown' };
+
+    expect(isOwner(profile, controls, 'ou_explicit_owner')).toBe(true);
+    expect(canUseDm(profile, controls, 'ou_explicit_owner')).toEqual({ ok: true, reason: 'owner' });
+    expect(canUseGroup(profile, controls, 'chat_not_allowlisted', 'ou_explicit_owner')).toEqual({
+      ok: true,
+      reason: 'owner',
+    });
+    expect(canRunAdminCommand(profile, controls, 'ou_explicit_owner')).toEqual({
+      ok: true,
+      reason: 'owner',
+    });
   });
 
   it('uses a cached owner even when the last owner refresh failed', () => {
@@ -87,6 +107,38 @@ describe('access policy', () => {
     expect(canUseGroup(profile, ownerControls, 'chat_new', 'ou_admin')).toEqual({
       ok: true,
       reason: 'allowed-admin',
+    });
+  });
+
+  it('keeps strict group modes closed for non-owners outside their intended audience', () => {
+    const ownerOnly = profileWithAccess({
+      ownerOpenId: 'ou_owner',
+      groupAccessMode: 'owner-only',
+      allowedChats: ['chat_allowed'],
+      admins: ['ou_admin'],
+    });
+    expect(canUseGroup(ownerOnly, ownerControls, 'chat_allowed', 'ou_other')).toEqual({
+      ok: false,
+      reason: 'denied-user',
+    });
+    expect(canUseGroup(ownerOnly, ownerControls, 'chat_other', 'ou_admin')).toEqual({
+      ok: false,
+      reason: 'denied-user',
+    });
+
+    const ownerPresent = profileWithAccess({
+      ownerOpenId: 'ou_owner',
+      groupAccessMode: 'owner-present',
+      allowedChats: ['chat_allowed'],
+      admins: ['ou_admin'],
+    });
+    expect(canUseGroup(ownerPresent, ownerControls, 'chat_allowed', 'ou_other')).toEqual({
+      ok: true,
+      reason: 'allowed-chat',
+    });
+    expect(canUseGroup(ownerPresent, ownerControls, 'chat_other', 'ou_admin')).toEqual({
+      ok: false,
+      reason: 'denied-chat',
     });
   });
 

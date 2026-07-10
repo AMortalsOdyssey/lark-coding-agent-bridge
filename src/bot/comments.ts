@@ -8,6 +8,7 @@ import { getAgentStopGraceMs } from '../config/schema';
 import type { Controls } from '../commands';
 import { resolveAppPaths } from '../config/app-paths';
 import { log } from '../core/logger';
+import { isOwner, type AccessDecision } from '../policy/access';
 import { evaluateRunPolicy } from '../policy/run-policy';
 import { resolveWorkingDirectory } from '../policy/workspace';
 import { RunRejected } from '../runtime/errors';
@@ -148,10 +149,18 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
     hasQuote: Boolean(ctx.quote),
   });
   const prompt = buildCommentPrompt(target, ctx);
+  const access: AccessDecision = isOwner(
+    controls.profileConfig,
+    controls,
+    evt.operator.openId,
+  )
+    ? { ok: true, reason: 'owner' }
+    : { ok: true, reason: 'comment-mention' };
   const workspace = await resolveCommentWorkingDirectory(
     workspaces.cwdFor(docSessionScopeId) ?? workspaces.cwdFor(legacyDocSessionScopeId),
     controls.profileConfig.workspaces.default,
     managedDefaultWorkspaceForComments(controls),
+    access.reason === 'owner' ? undefined : controls.profileConfig.workspaces.allowedRoot,
   );
   const requestedCwd = workspace.requestedCwd;
   const cwdRealpath = workspace.cwdRealpath;
@@ -207,7 +216,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
       prompt,
       requestedCwd,
       cwdRealpath,
-      access: { ok: true, reason: 'comment-mention' },
+      access,
       capability,
       profileConfig: controls.profileConfig,
       now: Date.now(),
@@ -564,6 +573,7 @@ async function resolveCommentWorkingDirectory(
   configuredCwd: string | undefined,
   defaultCwd: string | undefined,
   managedFallbackCwd: string,
+  allowedRoot?: string,
 ): Promise<
   | {
       ok: true;
@@ -581,11 +591,11 @@ async function resolveCommentWorkingDirectory(
 > {
   const failures: string[] = [];
   if (configuredCwd) {
-    const configured = await resolveWorkingDirectory(configuredCwd);
+    const configured = await resolveWorkingDirectory(configuredCwd, { allowedRoot });
     if (configured.ok) return configured;
     failures.push(configured.userVisible);
     if (defaultCwd) {
-      const fallback = await resolveWorkingDirectory(defaultCwd);
+      const fallback = await resolveWorkingDirectory(defaultCwd, { allowedRoot });
       if (fallback.ok) {
         return {
           ...fallback,
@@ -602,9 +612,16 @@ async function resolveCommentWorkingDirectory(
         'document/profile-default',
         fallback.reason,
         failures,
+        allowedRoot,
       );
     }
-    return resolveManagedCommentWorkingDirectory(managedFallbackCwd, 'document', configured.reason, failures);
+    return resolveManagedCommentWorkingDirectory(
+      managedFallbackCwd,
+      'document',
+      configured.reason,
+      failures,
+      allowedRoot,
+    );
   }
 
   if (!defaultCwd) {
@@ -613,12 +630,19 @@ async function resolveCommentWorkingDirectory(
       'missing-default',
       'missing-default-cwd',
       failures,
+      allowedRoot,
     );
   }
-  const workspace = await resolveWorkingDirectory(defaultCwd);
+  const workspace = await resolveWorkingDirectory(defaultCwd, { allowedRoot });
   if (workspace.ok) return workspace;
   failures.push(workspace.userVisible);
-  return resolveManagedCommentWorkingDirectory(managedFallbackCwd, 'profile-default', workspace.reason, failures);
+  return resolveManagedCommentWorkingDirectory(
+    managedFallbackCwd,
+    'profile-default',
+    workspace.reason,
+    failures,
+    allowedRoot,
+  );
 }
 
 async function resolveManagedCommentWorkingDirectory(
@@ -626,6 +650,7 @@ async function resolveManagedCommentWorkingDirectory(
   fallbackFrom: string,
   fallbackReason: string,
   failures: string[],
+  allowedRoot?: string,
 ): Promise<
   | {
       ok: true;
@@ -655,7 +680,7 @@ async function resolveManagedCommentWorkingDirectory(
       ].join('；'),
     };
   }
-  const workspace = await resolveWorkingDirectory(managedFallbackCwd);
+  const workspace = await resolveWorkingDirectory(managedFallbackCwd, { allowedRoot });
   if (workspace.ok) {
     return {
       ...workspace,

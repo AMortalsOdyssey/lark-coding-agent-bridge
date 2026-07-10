@@ -96,8 +96,39 @@ describe('profile schema', () => {
       allowedChats: [],
       admins: [],
       requireMentionInGroup: true,
-      ownerRequiredInGroups: false,
+      groupAccessMode: 'legacy',
     });
+  });
+
+  it('normalizes explicit owner and strict group access while migrating the local legacy flag', () => {
+    const strict = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      access: {
+        ownerOpenId: '  ou_owner  ',
+        groupAccessMode: 'owner-only',
+      },
+      workspaces: {
+        default: ' /repo/project ',
+        allowedRoot: ' /repo ',
+      },
+    });
+
+    expect(strict.access).toMatchObject({
+      ownerOpenId: 'ou_owner',
+      groupAccessMode: 'owner-only',
+    });
+    expect(strict.workspaces).toEqual({ default: '/repo/project', allowedRoot: '/repo' });
+
+    const migrated = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      access: { ownerRequiredInGroups: true },
+    });
+    expect(migrated.access.groupAccessMode).toBe('owner-present');
+    expect(migrated.access).not.toHaveProperty('ownerRequiredInGroups');
   });
 
   it('drops invalid legacy message reply values instead of blocking config load', () => {
@@ -116,7 +147,7 @@ describe('profile schema', () => {
     });
   });
 
-  it('normalizes workspaces to a default working directory only', () => {
+  it('normalizes workspaces to optional default and allowed-root directories', () => {
     const cfg = createDefaultProfileConfig({
       agentKind: 'claude',
       accounts: { app },

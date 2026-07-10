@@ -1,6 +1,7 @@
 import { realpath, stat } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
+import { isPathWithinRoot } from './path-boundary';
 
 export type WorkingDirectoryRejectReason =
   | 'empty-requested-cwd'
@@ -12,7 +13,9 @@ export type WorkingDirectoryRejectReason =
   | 'system-root'
   | 'temp-root'
   | 'broad-user-folder'
-  | 'volume-root';
+  | 'volume-root'
+  | 'allowed-root-inaccessible'
+  | 'cwd-outside-allowed-root';
 
 export type WorkingDirectoryResolveResult =
   | { ok: true; requestedCwd: string; cwdRealpath: string }
@@ -25,6 +28,7 @@ export type WorkingDirectoryResolveResult =
 
 export async function resolveWorkingDirectory(
   requestedCwd: string,
+  options: { allowedRoot?: string } = {},
 ): Promise<WorkingDirectoryResolveResult> {
   const trimmed = requestedCwd.trim();
   if (!trimmed) {
@@ -47,6 +51,24 @@ export async function resolveWorkingDirectory(
   const homeRealpath = await realpath(homedir()).catch(() => resolve(homedir()));
   const broad = classifyHighRiskWorkingDirectory(resolved, requestedCwd, tempRealpath, homeRealpath);
   if (broad) return broad;
+
+  if (options.allowedRoot) {
+    const allowedRootRealpath = await realpath(options.allowedRoot).catch(() => undefined);
+    if (!allowedRootRealpath) {
+      return reject(
+        'allowed-root-inaccessible',
+        requestedCwd,
+        '此 profile 的允许目录不可访问，已拒绝运行。',
+      );
+    }
+    if (!isPathWithinRoot(resolved, allowedRootRealpath)) {
+      return reject(
+        'cwd-outside-allowed-root',
+        requestedCwd,
+        '所选工作目录超出此 profile 的允许范围。',
+      );
+    }
+  }
 
   return {
     ok: true,

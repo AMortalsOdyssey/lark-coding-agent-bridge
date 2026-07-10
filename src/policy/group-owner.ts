@@ -1,6 +1,12 @@
 import type { LarkChannel } from '@larksuite/channel';
 import type { ProfileConfig } from '../config/profile-schema';
-import { canUseGroup, isCreator, type AccessDecision, type RuntimeControls } from './access';
+import { log } from '../core/logger';
+import {
+  canUseGroup,
+  effectiveOwnerOpenId,
+  type AccessDecision,
+  type RuntimeControls,
+} from './access';
 
 type ChatMembersGet = (args: {
   path: { chat_id: string };
@@ -29,10 +35,10 @@ export async function canUseGroupWithOwnerPresence(
 ): Promise<AccessDecision> {
   const decision = canUseGroup(profile, controls, chatId, senderId);
   if (!decision.ok) return decision;
-  if (!profile.access.ownerRequiredInGroups) return decision;
-  if (isCreator(controls, senderId)) return decision;
+  if (decision.reason === 'owner') return decision;
+  if (profile.access.groupAccessMode !== 'owner-present') return decision;
 
-  const ownerId = controls.botOwnerId;
+  const ownerId = effectiveOwnerOpenId(profile, controls);
   if (!ownerId) return deny('owner-check-failed');
 
   const ownerPresent = await isOwnerInChat(channel, chatId, ownerId);
@@ -49,24 +55,31 @@ async function isOwnerInChat(
   const chatMembers = rawChatMembersGet(channel);
   if (!chatMembers) return undefined;
 
-  let pageToken: string | undefined;
-  for (let page = 0; page < 20; page += 1) {
-    const response = await chatMembers({
-      path: { chat_id: chatId },
-      params: {
-        member_id_type: 'open_id',
-        page_size: 100,
-        ...(pageToken ? { page_token: pageToken } : {}),
-      },
-    });
-    const data = responseData(response);
-    const items = arrayValue((data as { items?: unknown })?.items);
-    if (items.some((item) => memberMatchesOwner(item, ownerId))) return true;
+  try {
+    let pageToken: string | undefined;
+    for (let page = 0; page < 20; page += 1) {
+      const response = await chatMembers({
+        path: { chat_id: chatId },
+        params: {
+          member_id_type: 'open_id',
+          page_size: 100,
+          ...(pageToken ? { page_token: pageToken } : {}),
+        },
+      });
+      const data = responseData(response);
+      const items = arrayValue((data as { items?: unknown })?.items);
+      if (items.some((item) => memberMatchesOwner(item, ownerId))) return true;
 
-    const hasMore = (data as { has_more?: unknown })?.has_more === true;
-    const next = (data as { page_token?: unknown })?.page_token;
-    pageToken = typeof next === 'string' && next ? next : undefined;
-    if (!hasMore || !pageToken) return false;
+      const hasMore = (data as { has_more?: unknown })?.has_more === true;
+      const next = (data as { page_token?: unknown })?.page_token;
+      pageToken = typeof next === 'string' && next ? next : undefined;
+      if (!hasMore || !pageToken) return false;
+    }
+  } catch (err) {
+    log.warn('access', 'owner-membership-check-failed', {
+      chatId,
+      err: err instanceof Error ? err.message : String(err),
+    });
   }
   return undefined;
 }

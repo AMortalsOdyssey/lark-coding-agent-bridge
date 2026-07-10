@@ -36,6 +36,39 @@ describe('run policy', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('rejects non-owner runs outside allowedRoot but lets the owner bypass it at full access', () => {
+    const restricted = profile({
+      agentKind: 'codex',
+      permissions: { defaultAccess: 'workspace', maxAccess: 'workspace' },
+      allowedRoot: '/repo/project',
+    });
+    const denied = evaluateRunPolicy({
+      ...baseInput({ profileConfig: restricted }),
+      requestedCwd: '/outside/project',
+      cwdRealpath: '/outside/project',
+      capability: codexCapability(restricted),
+      access: { ok: true, reason: 'allowed-chat' },
+    });
+    expect(denied).toMatchObject({
+      ok: false,
+      rejectReason: { code: 'cwd-outside-allowed-root' },
+    });
+
+    const owner = evaluateRunPolicy({
+      ...baseInput({ profileConfig: restricted }),
+      requestedCwd: '/outside/project',
+      cwdRealpath: '/outside/project',
+      capability: codexCapability(restricted),
+      access: { ok: true, reason: 'owner' },
+    });
+    expect(owner).toMatchObject({
+      ok: true,
+      accessMode: 'full',
+      sandbox: 'danger-full-access',
+      permissionMode: 'bypassPermissions',
+    });
+  });
+
   it.each([
     ['full', 'danger-full-access', 'bypassPermissions'],
     ['workspace', 'workspace-write', 'acceptEdits'],
@@ -181,6 +214,7 @@ function profile(options: {
     maxAccess: AccessMode;
   };
   attachments?: Partial<ProfileConfig['attachments']>;
+  allowedRoot?: string;
 } = {}) {
   const cfg = createDefaultProfileConfig({
     agentKind: options.agentKind ?? 'claude',
@@ -202,7 +236,7 @@ function profile(options: {
       ...cfg.attachments,
       ...options.attachments,
     },
-    workspaces: cfg.workspaces,
+    workspaces: options.allowedRoot ? { ...cfg.workspaces, allowedRoot: options.allowedRoot } : cfg.workspaces,
   };
 }
 

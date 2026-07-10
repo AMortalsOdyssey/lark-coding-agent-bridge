@@ -19,7 +19,11 @@ export async function commandSessionCatalogIdentity(input: {
   const requestedCwd =
     input.workspaces.cwdFor(input.scope) ?? input.controls.profileConfig.workspaces.default;
   if (!requestedCwd) return undefined;
-  const workspace = await resolveWorkingDirectory(requestedCwd);
+  const workspace = await resolveWorkingDirectory(requestedCwd, {
+    ...(input.access.reason === 'owner'
+      ? {}
+      : { allowedRoot: input.controls.profileConfig.workspaces.allowedRoot }),
+  });
   if (!workspace.ok) return undefined;
   const capability =
     input.controls.profileConfig.agentKind === 'codex'

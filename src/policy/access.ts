@@ -30,12 +30,29 @@ export function isCreator(controls: RuntimeControls, senderId: string): boolean 
   return Boolean(controls.botOwnerId) && controls.botOwnerId === senderId;
 }
 
+export function effectiveOwnerOpenId(
+  profile: ProfileConfig,
+  controls: RuntimeControls,
+): string | undefined {
+  return profile.access.ownerOpenId ?? (
+    controls.ownerRefreshState === 'unknown' ? undefined : controls.botOwnerId
+  );
+}
+
+export function isOwner(
+  profile: ProfileConfig,
+  controls: RuntimeControls,
+  senderId: string,
+): boolean {
+  return effectiveOwnerOpenId(profile, controls) === senderId;
+}
+
 export function canUseDm(
   profile: ProfileConfig,
   controls: RuntimeControls,
   senderId: string,
 ): AccessDecision {
-  if (isCreator(controls, senderId)) return allow('owner');
+  if (isOwner(profile, controls, senderId)) return allow('owner');
   if (profile.access.allowedUsers.includes(senderId)) return allow('allowed-user');
   if (profile.access.admins.includes(senderId)) return allow('allowed-admin');
   return deny('denied-user');
@@ -47,10 +64,20 @@ export function canUseGroup(
   chatId: string,
   senderId: string,
 ): AccessDecision {
-  if (isCreator(controls, senderId)) return allow('owner');
-  if (profile.access.admins.includes(senderId)) return allow('allowed-admin');
-  if (profile.access.allowedChats.includes(chatId)) return allow('allowed-chat');
-  return deny('denied-chat');
+  if (isOwner(profile, controls, senderId)) return allow('owner');
+
+  switch (profile.access.groupAccessMode) {
+    case 'owner-only':
+      return deny('denied-user');
+    case 'owner-present':
+      return profile.access.allowedChats.includes(chatId)
+        ? allow('allowed-chat')
+        : deny('denied-chat');
+    case 'legacy':
+      if (profile.access.admins.includes(senderId)) return allow('allowed-admin');
+      if (profile.access.allowedChats.includes(chatId)) return allow('allowed-chat');
+      return deny('denied-chat');
+  }
 }
 
 export function canRunAdminCommand(
@@ -58,7 +85,7 @@ export function canRunAdminCommand(
   controls: RuntimeControls,
   senderId: string,
 ): AccessDecision {
-  if (isCreator(controls, senderId)) return allow('owner');
+  if (isOwner(profile, controls, senderId)) return allow('owner');
   if (profile.access.admins.includes(senderId)) return allow('allowed-admin');
   return deny('denied-admin');
 }

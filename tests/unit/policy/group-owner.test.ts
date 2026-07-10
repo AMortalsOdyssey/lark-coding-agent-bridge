@@ -45,9 +45,45 @@ describe('group owner presence access gate', () => {
       canUseGroupWithOwnerPresence(profile, controls, channel, 'oc_any', 'ou_owner'),
     ).resolves.toEqual({ ok: true, reason: 'owner' });
   });
+
+  it('uses the explicit profile owner when the application owner lookup is unavailable', async () => {
+    const profile = profileWithOwnerRequired({ ownerOpenId: 'ou_explicit' });
+    const noRuntimeOwner: RuntimeControls = { ownerRefreshState: 'failed' };
+    const channel = fakeChannel([{ member_id: 'ou_explicit' }]);
+
+    await expect(
+      canUseGroupWithOwnerPresence(profile, noRuntimeOwner, channel, 'oc_allowed', 'ou_member'),
+    ).resolves.toEqual({ ok: true, reason: 'allowed-chat' });
+  });
+
+  it('checks every member page before deciding the owner is absent', async () => {
+    const profile = profileWithOwnerRequired();
+    let page = 0;
+    const channel = {
+      rawClient: {
+        im: {
+          v1: {
+            chatMembers: {
+              async get() {
+                page += 1;
+                return page === 1
+                  ? { data: { items: [{ member_id: 'ou_other' }], has_more: true, page_token: 'p2' } }
+                  : { data: { items: [{ member_id: 'ou_owner' }], has_more: false } };
+              },
+            },
+          },
+        },
+      },
+    } as unknown as LarkChannel;
+
+    await expect(
+      canUseGroupWithOwnerPresence(profile, controls, channel, 'oc_allowed', 'ou_member'),
+    ).resolves.toEqual({ ok: true, reason: 'allowed-chat' });
+    expect(page).toBe(2);
+  });
 });
 
-function profileWithOwnerRequired() {
+function profileWithOwnerRequired(access: { ownerOpenId?: string } = {}) {
   return createDefaultProfileConfig({
     agentKind: 'claude',
     accounts: {
@@ -59,7 +95,8 @@ function profileWithOwnerRequired() {
     },
     access: {
       allowedChats: ['oc_allowed'],
-      ownerRequiredInGroups: true,
+      groupAccessMode: 'owner-present',
+      ...access,
     },
   });
 }
