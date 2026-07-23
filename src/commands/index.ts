@@ -57,8 +57,10 @@ import {
   canUseGroup,
   effectiveOwnerOpenId,
   isOwner,
+  type AccessDecision,
   type OwnerRefreshState,
 } from '../policy/access';
+import { allowedRootForAccess } from '../policy/profile-limits';
 import { setSecret } from '../config/keystore';
 import { buildEncryptedAccountConfig, saveConfig } from '../config/store';
 import { log, reportMetric } from '../core/logger';
@@ -498,9 +500,14 @@ function scopedWorkspaceName(ctx: CommandContext, name: string): string {
 }
 
 function allowedRootForActor(ctx: CommandContext): string | undefined {
-  return isOwner(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId)
-    ? undefined
-    : ctx.controls.profileConfig.workspaces.allowedRoot;
+  const access: AccessDecision = isOwner(
+    ctx.controls.profileConfig,
+    ctx.controls,
+    ctx.msg.senderId,
+  )
+    ? { ok: true, reason: 'owner' }
+    : { ok: true, reason: 'allowed-user' };
+  return allowedRootForAccess(ctx.controls.profileConfig, access);
 }
 
 function workspaceAliasKeys(ctx: CommandContext, name: string): string[] {
@@ -1112,9 +1119,7 @@ async function handleDoctor(args: string, ctx: CommandContext): Promise<void> {
     ctx.msg.senderId,
   );
   const workspace = await resolveWorkingDirectory(requestedCwd, {
-    ...(commandAccess.reason === 'owner'
-      ? {}
-      : { allowedRoot: ctx.controls.profileConfig.workspaces.allowedRoot }),
+    allowedRoot: allowedRootForAccess(ctx.controls.profileConfig, commandAccess),
   });
   if (!workspace.ok) {
     await reply(

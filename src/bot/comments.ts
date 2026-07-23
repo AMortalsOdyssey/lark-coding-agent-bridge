@@ -12,6 +12,7 @@ import type { Controls } from '../commands';
 import { resolveAppPaths } from '../config/app-paths';
 import { log } from '../core/logger';
 import { isOwner, type AccessDecision } from '../policy/access';
+import { allowedRootForAccess } from '../policy/profile-limits';
 import { evaluateRunPolicy } from '../policy/run-policy';
 import { resolveWorkingDirectory } from '../policy/workspace';
 import { RunRejected } from '../runtime/errors';
@@ -176,7 +177,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
     workspaces.cwdFor(docSessionScopeId) ?? workspaces.cwdFor(legacyDocSessionScopeId),
     controls.profileConfig.workspaces.default,
     managedDefaultWorkspaceForComments(controls),
-    access.reason === 'owner' ? undefined : controls.profileConfig.workspaces.allowedRoot,
+    allowedRootForAccess(controls.profileConfig, access),
   );
   const requestedCwd = workspace.requestedCwd;
   const cwdRealpath = workspace.cwdRealpath;

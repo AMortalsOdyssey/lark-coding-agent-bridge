@@ -435,7 +435,12 @@ export function createRuntimeAgent(
       larkChannel,
     });
   }
-  return new ClaudeAdapter({ larkChannel });
+  return new ClaudeAdapter({
+    larkChannel,
+    settingsFile: profileConfig.permissions.claude?.settingsFile,
+    settingSources: profileConfig.permissions.claude?.settingSources,
+    strictMcpConfig: profileConfig.permissions.claude?.strictMcpConfig,
+  });
 }
 
 /**

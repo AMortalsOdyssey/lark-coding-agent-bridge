@@ -10,6 +10,7 @@ import {
 import type { ProfileConfig } from '../config/profile-schema';
 import type { AccessDecision } from './access';
 import { isPathWithinRoot } from './path-boundary';
+import { profileRunLimitsApply } from './profile-limits';
 import {
   accessPolicyDigest,
   attachmentPolicyConfigDigest,
@@ -94,8 +95,9 @@ export function evaluateRunPolicy(input: RunPolicyInput): RunPolicyResult {
   }
 
   const ownerRun = input.access.reason === 'owner';
+  const applyProfileLimits = profileRunLimitsApply(input.profileConfig, input.access);
   const allowedRoot = input.profileConfig.workspaces.allowedRoot;
-  if (allowedRoot && !ownerRun && !isPathWithinRoot(input.cwdRealpath, allowedRoot)) {
+  if (allowedRoot && applyProfileLimits && !isPathWithinRoot(input.cwdRealpath, allowedRoot)) {
     return reject('cwd-outside-allowed-root', '所选工作目录超出此 profile 的允许范围。');
   }
 
@@ -112,17 +114,19 @@ export function evaluateRunPolicy(input: RunPolicyInput): RunPolicyResult {
     return reject('required-attachment-rejected', '必需附件未通过校验，已拒绝运行。');
   }
 
-  const accessMode = ownerRun
-    ? 'full'
-    : clampAccess(
+  const accessMode =
+    ownerRun && !applyProfileLimits
+      ? 'full'
+      : clampAccess(
         input.profileConfig.permissions.defaultAccess,
         input.profileConfig.permissions.maxAccess,
         input.capability.permissions.maxAccess,
       );
   const sandbox = accessToCodexSandbox(accessMode);
-  const permissionMode = ownerRun
-    ? accessToClaudePermissionMode('full')
-    : accessToClaudePermissionMode(accessMode, input.profileConfig.permissions);
+  const permissionMode =
+    ownerRun && !applyProfileLimits
+      ? accessToClaudePermissionMode('full')
+      : accessToClaudePermissionMode(accessMode, input.profileConfig.permissions);
   const resourceDigest = resourceScopeDigest({
     source: input.scope.source,
     chatId: input.scope.chatId,

@@ -134,6 +134,33 @@ describe('ClaudeAdapter process contract', () => {
     expect(record.argv[5]).toBe('bypassPermissions');
   });
 
+  it('loads profile-scoped settings without inheriting project or user MCP config', async () => {
+    const fake = await createFakeClaude({
+      lines: [{ type: 'result', session_id: 'sess-sandboxed' }],
+    });
+    cleanup.push(fake.dir);
+
+    const settingsFile = join(fake.dir, 'claude-settings.json');
+    const run = new ClaudeAdapter({
+      binary: fake.path,
+      settingsFile,
+      settingSources: ['user'],
+      strictMcpConfig: true,
+    }).run({
+      runId: 'run-sandboxed',
+      prompt: 'sandboxed',
+      cwd: fake.dir,
+    });
+
+    await collect(run.events);
+    const record = await readRecord(fake.recordPath);
+    expect(record.argv).toContain('--settings');
+    expect(record.argv).toContain(settingsFile);
+    expect(record.argv).toContain('--setting-sources');
+    expect(record.argv).toContain('user');
+    expect(record.argv).toContain('--strict-mcp-config');
+  });
+
   it('includes stderr when the process exits non-zero', async () => {
     const fake = await createFakeClaude({
       lines: [{ type: 'assistant', message: { content: [{ type: 'text', text: 'before failure' }] } }],

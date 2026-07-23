@@ -2,6 +2,7 @@ import type { NormalizedMessage } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
 import type { Controls } from '../commands';
 import type { AccessDecision } from '../policy/access';
+import { allowedRootForAccess } from '../policy/profile-limits';
 import { evaluateRunPolicy } from '../policy/run-policy';
 import { resolveWorkingDirectory } from '../policy/workspace';
 import type { SessionCatalogIdentity } from '../session/catalog';
@@ -20,9 +21,7 @@ export async function commandSessionCatalogIdentity(input: {
     input.workspaces.cwdFor(input.scope) ?? input.controls.profileConfig.workspaces.default;
   if (!requestedCwd) return undefined;
   const workspace = await resolveWorkingDirectory(requestedCwd, {
-    ...(input.access.reason === 'owner'
-      ? {}
-      : { allowedRoot: input.controls.profileConfig.workspaces.allowedRoot }),
+    allowedRoot: allowedRootForAccess(input.controls.profileConfig, input.access),
   });
   if (!workspace.ok) return undefined;
   const capability =

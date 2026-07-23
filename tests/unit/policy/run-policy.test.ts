@@ -69,6 +69,38 @@ describe('run policy', () => {
     });
   });
 
+  it('can make owner runs obey the profile workspace and permission ceiling', () => {
+    const restricted = profile({
+      permissions: {
+        defaultAccess: 'workspace',
+        maxAccess: 'workspace',
+        ownerAccess: 'profile',
+      },
+      allowedRoot: '/repo/project',
+    });
+    const outside = evaluateRunPolicy({
+      ...baseInput({ profileConfig: restricted }),
+      requestedCwd: '/outside/project',
+      cwdRealpath: '/outside/project',
+      access: { ok: true, reason: 'owner' },
+    });
+    expect(outside).toMatchObject({
+      ok: false,
+      rejectReason: { code: 'cwd-outside-allowed-root' },
+    });
+
+    const inside = evaluateRunPolicy({
+      ...baseInput({ profileConfig: restricted }),
+      access: { ok: true, reason: 'owner' },
+    });
+    expect(inside).toMatchObject({
+      ok: true,
+      accessMode: 'workspace',
+      sandbox: 'workspace-write',
+      permissionMode: 'acceptEdits',
+    });
+  });
+
   it.each([
     ['full', 'danger-full-access', 'bypassPermissions'],
     ['workspace', 'workspace-write', 'acceptEdits'],
@@ -212,6 +244,7 @@ function profile(options: {
   permissions?: {
     defaultAccess: AccessMode;
     maxAccess: AccessMode;
+    ownerAccess?: 'full' | 'profile';
   };
   attachments?: Partial<ProfileConfig['attachments']>;
   allowedRoot?: string;

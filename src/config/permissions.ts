@@ -1,12 +1,19 @@
 export type AccessMode = 'read-only' | 'workspace' | 'full';
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 export type ClaudePermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+export type ClaudeSettingSource = 'user' | 'project' | 'local';
+export type OwnerAccessMode = 'full' | 'profile';
 
 export interface PermissionConfig {
   defaultAccess: AccessMode;
   maxAccess: AccessMode;
+  /** Whether owner runs bypass or obey the profile's run limits. Default full. */
+  ownerAccess?: OwnerAccessMode;
   claude?: {
     permissionMode?: ClaudePermissionMode;
+    settingsFile?: string;
+    settingSources?: ClaudeSettingSource[];
+    strictMcpConfig?: boolean;
   };
 }
 
@@ -161,6 +168,7 @@ function normalizeCanonicalPermissions(
     explicitDefaultAccess ??
     (ACCESS_ORDER[base.defaultAccess] <= ACCESS_ORDER[maxAccess] ? base.defaultAccess : maxAccess);
   assertAccessPair(defaultAccess, maxAccess);
+  const ownerAccess = readOwnerAccess(input.ownerAccess);
 
   const claude = normalizeClaudePermissions(input.claude);
   if (claude?.permissionMode) {
@@ -169,6 +177,7 @@ function normalizeCanonicalPermissions(
   return {
     defaultAccess,
     maxAccess,
+    ...(ownerAccess === 'profile' ? { ownerAccess } : {}),
     ...(claude ? { claude } : {}),
   };
 }
@@ -217,15 +226,55 @@ function normalizeClaudePermissions(
   if (!isConfigObject(input)) {
     throw new Error('invalid permission claude config');
   }
-  if (input.permissionMode === undefined) {
-    return undefined;
-  }
-  if (!isClaudePermissionMode(input.permissionMode)) {
+  if (
+    input.permissionMode !== undefined &&
+    !isClaudePermissionMode(input.permissionMode)
+  ) {
     throw new Error('invalid permission claude.permissionMode');
   }
+  const settingsFile =
+    typeof input.settingsFile === 'string' && input.settingsFile.trim()
+      ? input.settingsFile.trim()
+      : undefined;
+  const settingSources = normalizeClaudeSettingSources(input.settingSources);
+  const strictMcpConfig = input.strictMcpConfig === true;
+  if (
+    input.permissionMode === undefined &&
+    !settingsFile &&
+    settingSources === undefined &&
+    !strictMcpConfig
+  ) {
+    return undefined;
+  }
   return {
-    permissionMode: input.permissionMode,
+    ...(input.permissionMode ? { permissionMode: input.permissionMode } : {}),
+    ...(settingsFile ? { settingsFile } : {}),
+    ...(settingSources !== undefined ? { settingSources } : {}),
+    ...(strictMcpConfig ? { strictMcpConfig: true } : {}),
   };
+}
+
+function normalizeClaudeSettingSources(input: unknown): ClaudeSettingSource[] | undefined {
+  if (input === undefined) return undefined;
+  if (!Array.isArray(input)) {
+    throw new Error('invalid permission claude.settingSources');
+  }
+  const sources = [...new Set(input)];
+  if (
+    !sources.every(
+      (source): source is ClaudeSettingSource =>
+        source === 'user' || source === 'project' || source === 'local',
+    )
+  ) {
+    throw new Error('invalid permission claude.settingSources');
+  }
+  return sources;
+}
+
+function readOwnerAccess(value: unknown): OwnerAccessMode | undefined {
+  if (value === undefined || value === 'full') return undefined;
+  if (value === 'profile') return value;
+  throw new Error('invalid permission ownerAccess');
 }
 
 function hasLegacySandbox(input: Partial<LegacySandboxInput> | undefined): boolean {

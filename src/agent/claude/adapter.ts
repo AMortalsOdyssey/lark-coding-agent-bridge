@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 import { log } from '../../core/logger';
 import { mergeProcessEnv, spawnProcess, type SpawnedProcessByStdio } from '../../platform/spawn';
+import type { ClaudeSettingSource } from '../../config/permissions';
 import { buildBridgeSystemPrompt } from '../bridge-system-prompt';
 import { buildLarkChannelEnv, type LarkChannelEnvContext } from '../lark-channel-env';
 import { checkAgentAvailability, type AgentAvailability } from '../preflight';
@@ -21,6 +22,9 @@ import { translateEvent } from './stream-json';
 export interface ClaudeAdapterOptions {
   binary?: string;
   larkChannel?: LarkChannelEnvContext;
+  settingsFile?: string;
+  settingSources?: ClaudeSettingSource[];
+  strictMcpConfig?: boolean;
 }
 
 type ClaudeChild = SpawnedProcessByStdio<Writable, Readable, Readable>;
@@ -31,11 +35,17 @@ export class ClaudeAdapter implements AgentAdapter {
 
   private readonly binary: string;
   private readonly larkChannel: LarkChannelEnvContext | undefined;
+  private readonly settingsFile: string | undefined;
+  private readonly settingSources: ClaudeSettingSource[] | undefined;
+  private readonly strictMcpConfig: boolean;
   private botIdentity: AgentBotIdentity | undefined;
 
   constructor(opts: ClaudeAdapterOptions = {}) {
     this.binary = opts.binary ?? 'claude';
     this.larkChannel = opts.larkChannel;
+    this.settingsFile = opts.settingsFile;
+    this.settingSources = opts.settingSources;
+    this.strictMcpConfig = opts.strictMcpConfig === true;
   }
 
   setBotIdentity(identity: AgentBotIdentity): void {
@@ -80,6 +90,11 @@ export class ClaudeAdapter implements AgentAdapter {
       '--append-system-prompt-file',
       systemPromptFile.path,
     ];
+    if (this.settingsFile) args.push('--settings', this.settingsFile);
+    if (this.settingSources !== undefined) {
+      args.push('--setting-sources', this.settingSources.join(','));
+    }
+    if (this.strictMcpConfig) args.push('--strict-mcp-config');
     if (opts.sessionId) args.push('--resume', opts.sessionId);
     if (opts.model) args.push('--model', opts.model);
     if (opts.effort) args.push('--effort', opts.effort);
@@ -97,6 +112,9 @@ export class ClaudeAdapter implements AgentAdapter {
       promptChars: opts.prompt.length,
       model: opts.model,
       effort: opts.effort,
+      hasSettingsFile: Boolean(this.settingsFile),
+      settingSources: this.settingSources?.join(','),
+      strictMcpConfig: this.strictMcpConfig,
     });
 
     // Listeners MUST be attached synchronously here, before we return.

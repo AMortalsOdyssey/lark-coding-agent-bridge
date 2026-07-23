@@ -156,6 +156,37 @@ describe('profile schema', () => {
     expect(cfg.workspaces).toEqual({});
   });
 
+  it('normalizes owner profile limits and Claude runtime settings', () => {
+    const cfg = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      permissions: {
+        defaultAccess: 'workspace',
+        maxAccess: 'workspace',
+        ownerAccess: 'profile',
+        claude: {
+          permissionMode: 'acceptEdits',
+          settingsFile: ' /private/profile/claude-settings.json ',
+          settingSources: ['user'],
+          strictMcpConfig: true,
+        },
+      },
+    });
+
+    expect(cfg.permissions).toEqual({
+      defaultAccess: 'workspace',
+      maxAccess: 'workspace',
+      ownerAccess: 'profile',
+      claude: {
+        permissionMode: 'acceptEdits',
+        settingsFile: '/private/profile/claude-settings.json',
+        settingSources: ['user'],
+        strictMcpConfig: true,
+      },
+    });
+  });
+
   it('defaults lark-cli identity to app-only without legacy global source fields', () => {
     const cfg = createDefaultProfileConfig({
       agentKind: 'claude',

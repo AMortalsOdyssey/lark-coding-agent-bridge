@@ -4,6 +4,7 @@ import { resolveEffortArg } from '../agent/effort';
 import type { AgentEvent } from '../agent/types';
 import type { ProfileConfig } from '../config/profile-schema';
 import type { AccessDecision } from '../policy/access';
+import { allowedRootForAccess } from '../policy/profile-limits';
 import {
   evaluateRunPolicy,
   type AgentAttachment,
@@ -79,9 +80,7 @@ export async function startRunFlow(input: StartRunFlowInput): Promise<StartRunFl
   const requestedCwd =
     input.workspaces.cwdFor(input.scopeId) ?? input.profileConfig.workspaces.default ?? '';
   const workspace = await resolveWorkingDirectory(requestedCwd, {
-    ...(input.access.reason === 'owner'
-      ? {}
-      : { allowedRoot: input.profileConfig.workspaces.allowedRoot }),
+    allowedRoot: allowedRootForAccess(input.profileConfig, input.access),
   });
   if (!workspace.ok) {
     return {
