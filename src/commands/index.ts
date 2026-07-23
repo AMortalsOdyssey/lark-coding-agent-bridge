@@ -192,8 +192,9 @@ const handlers: Record<string, Handler> = {
 
 /**
  * Commands that can mutate credentials, lifecycle, filesystem reach, or
- * surface sensitive runtime state. Gated by unified access policy; runtime
- * owner is always allowed, while empty admin list means no listed admins.
+ * surface sensitive runtime state. Legacy profiles allow owner/admin access;
+ * profiles with `memberCommands` use the stricter owner-or-exact-allowlist
+ * gate before this compatibility check.
  */
 const ADMIN_COMMANDS = new Set([
   '/account',
@@ -208,6 +209,32 @@ const ADMIN_COMMANDS = new Set([
   '/remove',
 ]);
 
+function memberCommandAllowed(
+  cmd: string,
+  args: string,
+  configured: readonly string[],
+): boolean {
+  if (!configured.includes(cmd)) return false;
+  // Public session controls are intentionally exact. `/new chat` creates a
+  // group and targeted `/stop <scope>` controls another run, so both remain
+  // owner-only even when their base command is exposed to members.
+  if (cmd === '/new' || cmd === '/reset' || cmd === '/stop') {
+    return args.trim() === '';
+  }
+  return true;
+}
+
+function ownerRestrictedCommandDenied(
+  cmd: string,
+  args: string,
+  ctx: CommandContext,
+): boolean {
+  const configured = ctx.controls.profileConfig.access.memberCommands;
+  if (configured === undefined) return false;
+  if (isOwner(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId)) return false;
+  return !memberCommandAllowed(cmd, args, configured);
+}
+
 function isAdminCommand(cmd: string): boolean {
   return ADMIN_COMMANDS.has(cmd.startsWith('/') ? cmd : `/${cmd}`);
 }
@@ -220,6 +247,14 @@ export async function tryHandleCommand(ctx: CommandContext): Promise<boolean> {
   const args = parts.slice(1).join(' ');
   const h = handlers[cmd];
   if (!h) return false;
+  if (ownerRestrictedCommandDenied(cmd, args, ctx)) {
+    log.info('command', 'owner-only-deny', {
+      cmd,
+      sender: ctx.msg.senderId.slice(-6),
+    });
+    await reply(ctx, '❌ 此命令仅 Owner 可用。');
+    return true;
+  }
   if (
     isAdminCommand(cmd) &&
     !canRunAdminCommand(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId).ok
@@ -246,8 +281,17 @@ export async function runCommandHandler(
   args: string,
   ctx: CommandContext,
 ): Promise<boolean> {
-  const h = handlers[`/${name}`];
+  const cmd = `/${name}`;
+  const h = handlers[cmd];
   if (!h) return false;
+  if (ownerRestrictedCommandDenied(cmd, args, ctx)) {
+    log.info('command', 'owner-only-deny', {
+      cmd: name,
+      sender: ctx.msg.senderId.slice(-6),
+      via: 'card',
+    });
+    return true;
+  }
   if (
     isAdminCommand(name) &&
     !canRunAdminCommand(ctx.controls.profileConfig, ctx.controls, ctx.msg.senderId).ok

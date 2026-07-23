@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { CommentEvent, NormalizedMessage } from '@larksuite/channel';
 import { handleCommentMention } from '../../../src/bot/comments';
-import { tryHandleCommand, type CommandContext, type Controls } from '../../../src/commands';
+import {
+  runCommandHandler,
+  tryHandleCommand,
+  type CommandContext,
+  type Controls,
+} from '../../../src/commands';
 import { createDefaultProfileConfig, type ProfileConfig } from '../../../src/config/profile-schema';
 import { ActiveRuns } from '../../../src/bot/active-runs';
 import { ProcessPool } from '../../../src/bot/process-pool';
@@ -67,6 +72,99 @@ describe('unified access gates', () => {
 
     expect(workspaces.cwdFor('chat-1')).toBeUndefined();
     expect(lastMarkdown(channel)).toContain('仅管理员可用');
+  });
+
+  it('limits non-owner built-in commands to exact current-session controls', async () => {
+    const root = await makeRoot();
+    const channel = createFakeChannel();
+    const sessions = new SessionStore(join(root, 'sessions.json'));
+    const workspaces = new WorkspaceStore(join(root, 'workspaces.json'));
+    const controls = makeControls({
+      owner: 'ou_owner',
+      defaultWorkspace: root,
+      access: {
+        admins: ['ou_other'],
+        memberCommands: ['/new', '/reset', '/stop'],
+      },
+    });
+
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/status',
+    }));
+    expect(lastMarkdown(channel)).toContain('仅 Owner 可用');
+
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/new chat escaped',
+    }));
+    expect(lastMarkdown(channel)).toContain('仅 Owner 可用');
+
+    sessions.set('chat-1', 'session-1', root);
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/new',
+    }));
+    expect(sessions.getRaw('chat-1')).toBeUndefined();
+
+    sessions.set('chat-1', 'session-2', root);
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/reset',
+    }));
+    expect(sessions.getRaw('chat-1')).toBeUndefined();
+
+    const sentBeforeStop = channel.sent.length;
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/stop',
+    }));
+    expect(channel.sent).toHaveLength(sentBeforeStop);
+
+    await tryHandleCommand(commandContext({
+      channel,
+      sessions,
+      workspaces,
+      controls,
+      senderId: 'ou_other',
+      content: '/stop other-scope',
+    }));
+    expect(lastMarkdown(channel)).toContain('仅 Owner 可用');
+
+    const sentBeforeCardAction = channel.sent.length;
+    await runCommandHandler(
+      'status',
+      '',
+      commandContext({
+        channel,
+        sessions,
+        workspaces,
+        controls,
+        senderId: 'ou_other',
+        content: '/status',
+      }),
+    );
+    expect(channel.sent).toHaveLength(sentBeforeCardAction);
   });
 
   it('does not apply IM access gates to cloud-doc comment mentions', async () => {

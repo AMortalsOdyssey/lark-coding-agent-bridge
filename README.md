@@ -284,6 +284,8 @@ If you'd rather not do it inside Feishu, `/invite` and `/config` write the match
         "allowedUsers": ["ou_xxxxxxxxxxxxx"],
         "allowedChats": ["oc_xxxxxxxxxxxxx"],
         "admins": ["ou_xxxxxxxxxxxxx"],
+        "groupAccessMode": "legacy",
+        "memberCommands": ["/new", "/reset", "/stop"],
         "requireMentionInGroup": true
       }
     }
@@ -291,7 +293,7 @@ If you'd rather not do it inside Feishu, `/invite` and `/config` write the match
 }
 ```
 
-`allowedUsers` / `admins` take user `open_id`s; `allowedChats` takes group `chat_id`s. The easiest way to find an ID by hand: have the person message the bot (or `@` it in the group), then check the active profile's log:
+`allowedUsers` / `admins` take user `open_id`s; `allowedChats` takes group `chat_id`s. Set `groupAccessMode` to `open` to accept mentioned members in every group without maintaining `allowedChats`. When `memberCommands` is present, non-owners can run only those exact built-in commands; `/new chat` and targeted `/stop <scope>` remain owner-only even if their base commands are listed. The easiest way to find an ID by hand: have the person message the bot (or `@` it in the group), then check the active profile's log:
 
 ```bash
 grep '"event":"enter"' ~/.lark-channel/profiles/<profile>/logs/bridge-$(date +%Y%m%d).jsonl | tail -5

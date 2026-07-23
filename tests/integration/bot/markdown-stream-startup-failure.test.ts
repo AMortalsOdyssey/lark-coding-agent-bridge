@@ -155,6 +155,44 @@ describe('markdown stream startup failures', () => {
     expect(h.agent.runOptions[0]?.model).toBe('gpt-5.6-sol');
   });
 
+  it('lets a mentioned member trigger a run in any group when access is open', async () => {
+    const h = await createHarness();
+    h.profileConfig.access.groupAccessMode = 'open';
+    h.profileConfig.access.allowedChats = [];
+    h.profileConfig.access.requireMentionInGroup = true;
+    await startTestBridge(h);
+
+    await h.channel.handlers.message?.({
+      ...message('om_member', '@Bridge 请帮我处理'),
+      chatId: 'oc_never_seen_before',
+      chatType: 'group',
+      senderId: 'ou_member',
+      mentionedBot: true,
+    });
+
+    await waitFor(() => h.agent.runOptions.length === 1);
+    expect(h.agent.runOptions[0]?.prompt).toContain('"senderRole":"member"');
+  });
+
+  it('still requires a non-owner member to mention the bot in open groups', async () => {
+    const h = await createHarness();
+    h.profileConfig.access.groupAccessMode = 'open';
+    h.profileConfig.access.allowedChats = [];
+    h.profileConfig.access.requireMentionInGroup = true;
+    await startTestBridge(h);
+
+    await h.channel.handlers.message?.({
+      ...message('om_member_quiet', '没有 @ 的群聊消息'),
+      chatId: 'oc_never_seen_before',
+      chatType: 'group',
+      senderId: 'ou_member',
+      mentionedBot: false,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(h.agent.runOptions).toHaveLength(0);
+  });
+
   it('logs stream failures that arrive after terminal grace expires', async () => {
     const streamFailure = deferred<void>();
     let streamProducerStarted = false;

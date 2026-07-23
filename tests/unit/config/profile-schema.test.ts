@@ -131,6 +131,21 @@ describe('profile schema', () => {
     expect(migrated.access).not.toHaveProperty('ownerRequiredInGroups');
   });
 
+  it('normalizes open group access and an exact member command allowlist', () => {
+    const cfg = normalizeProfileConfig({
+      schemaVersion: 2,
+      agentKind: 'claude',
+      accounts: { app },
+      access: {
+        groupAccessMode: 'open',
+        memberCommands: [' /NEW ', '/reset', '/stop', '/stop', 'not-a-command'],
+      },
+    });
+
+    expect(cfg.access.groupAccessMode).toBe('open');
+    expect(cfg.access.memberCommands).toEqual(['/new', '/reset', '/stop']);
+  });
+
   it('drops invalid legacy message reply values instead of blocking config load', () => {
     const cfg = normalizeProfileConfig({
       schemaVersion: 2,

@@ -77,7 +77,8 @@ export type CotMessagesMode = 'off' | 'brief' | 'detailed';
  */
 export interface AppAccess {
   /** Application-scoped open_id for the absolute owner. The owner bypasses
-   * chat allowlists, mention requirements, workspace roots, and run caps. */
+   * chat and command gates; profile run limits may still constrain filesystem
+   * and agent permissions when permissions.ownerAccess is `profile`. */
   ownerOpenId?: string;
   /** open_id allowlist for DM senders. Group senders are gated by chat. */
   allowedUsers?: string[];
@@ -87,10 +88,14 @@ export interface AppAccess {
    * (/account, /config, /exit, /reconnect, /doctor, /cd, /ws, /doc,
    * /invite, /remove). */
   admins?: string[];
+  /** Optional exact built-in command allowlist for non-owner members.
+   * When present, admins do not bypass it. */
+  memberCommands?: string[];
   /** Strict group behavior. `legacy` preserves upstream behavior;
    * `owner-only` rejects every non-owner; `owner-present` permits users in
-   * allowed chats only while the owner remains a member. */
-  groupAccessMode?: 'legacy' | 'owner-only' | 'owner-present';
+   * allowed chats only while the owner remains a member; `open` permits
+   * every member in every group where the bot can receive messages. */
+  groupAccessMode?: 'legacy' | 'owner-only' | 'owner-present' | 'open';
   /** Legacy local flag, migrated to groupAccessMode=owner-present. */
   ownerRequiredInGroups?: boolean;
 }

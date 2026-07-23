@@ -73,6 +73,8 @@ export function canUseGroup(
       return profile.access.allowedChats.includes(chatId)
         ? allow('allowed-chat')
         : deny('denied-chat');
+    case 'open':
+      return allow('allowed-chat');
     case 'legacy':
       if (profile.access.admins.includes(senderId)) return allow('allowed-admin');
       if (profile.access.allowedChats.includes(chatId)) return allow('allowed-chat');

@@ -14,7 +14,7 @@ import {
 } from './permissions';
 
 export type AgentKind = 'claude' | 'codex';
-export type GroupAccessMode = 'legacy' | 'owner-only' | 'owner-present';
+export type GroupAccessMode = 'legacy' | 'owner-only' | 'owner-present' | 'open';
 export type SandboxMode = CodexSandboxMode;
 export type { AccessMode, PermissionConfig, PermissionSource };
 
@@ -23,6 +23,8 @@ export interface ProfileAccess {
   allowedUsers: string[];
   allowedChats: string[];
   admins: string[];
+  /** When present, non-owners may run only these built-in commands. */
+  memberCommands?: string[];
   requireMentionInGroup: boolean;
   groupAccessMode: GroupAccessMode;
 }
@@ -279,6 +281,9 @@ function normalizeAccess(
     allowedUsers: stringArray(access?.allowedUsers),
     allowedChats: stringArray(access?.allowedChats),
     admins: stringArray(access?.admins),
+    ...(access?.memberCommands !== undefined
+      ? { memberCommands: normalizeMemberCommands(access.memberCommands) }
+      : {}),
     requireMentionInGroup: access?.requireMentionInGroup ?? legacyRequireMentionInGroup ?? true,
     groupAccessMode,
   };
@@ -288,8 +293,25 @@ function normalizeGroupAccessMode(
   value: unknown,
   legacyOwnerRequired: boolean | undefined,
 ): GroupAccessMode {
-  if (value === 'owner-only' || value === 'owner-present' || value === 'legacy') return value;
+  if (
+    value === 'owner-only' ||
+    value === 'owner-present' ||
+    value === 'legacy' ||
+    value === 'open'
+  ) {
+    return value;
+  }
   return legacyOwnerRequired === true ? 'owner-present' : 'legacy';
+}
+
+function normalizeMemberCommands(input: unknown): string[] {
+  return [
+    ...new Set(
+      stringArray(input)
+        .map((command) => command.trim().toLowerCase())
+        .filter((command) => /^\/[a-z][a-z0-9-]*$/.test(command)),
+    ),
+  ];
 }
 
 function normalizeWorkspaces(input: {

@@ -114,6 +114,20 @@ describe('run card renderer snapshots', () => {
     expect(card).toContain(sensitivePath);
     expect(text).toContain(sensitivePath);
   });
+
+  it('preserves structured human mention tags in card and text replies', () => {
+    const mention = '<at id="ou_member"></at>';
+    const state = stateFrom([
+      { type: 'text', delta: `${mention} 请看这里。` },
+      { type: 'done', terminationReason: 'normal' },
+    ]);
+
+    const card = renderCard(state) as {
+      body?: { elements?: Array<{ content?: string }> };
+    };
+    expect(card.body?.elements?.[0]?.content).toContain(mention);
+    expect(renderText(state)).toContain(mention);
+  });
 });
 
 function stateFrom(events: AgentEvent[]): RunState {

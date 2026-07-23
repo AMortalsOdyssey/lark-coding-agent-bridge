@@ -284,6 +284,8 @@ bridge 会检查所选目录存在、是目录，并且不是 `/`、Home 根、�
         "allowedUsers": ["ou_xxxxxxxxxxxxx"],
         "allowedChats": ["oc_xxxxxxxxxxxxx"],
         "admins": ["ou_xxxxxxxxxxxxx"],
+        "groupAccessMode": "legacy",
+        "memberCommands": ["/new", "/reset", "/stop"],
         "requireMentionInGroup": true
       }
     }
@@ -291,7 +293,7 @@ bridge 会检查所选目录存在、是目录，并且不是 `/`、Home 根、�
 }
 ```
 
-`allowedUsers` / `admins` 填用户 `open_id`，`allowedChats` 填群 `chat_id`。手动找 ID 最简单的办法：让对方给 bot 发条消息（群里就 @ 它一下），然后看当前 profile 的日志：
+`allowedUsers` / `admins` 填用户 `open_id`，`allowedChats` 填群 `chat_id`。把 `groupAccessMode` 设为 `open` 后，任何群里真实 @bot 的成员都能对话，不需要维护 `allowedChats`。配置 `memberCommands` 后，非 Owner 只能执行列出的内置命令；即使列了 `/new` 和 `/stop`，`/new chat` 与定向 `/stop <scope>` 仍只允许 Owner。手动找 ID 最简单的办法：让对方给 bot 发条消息（群里就 @ 它一下），然后看当前 profile 的日志：
 
 ```bash
 grep '"event":"enter"' ~/.lark-channel/profiles/<profile>/logs/bridge-$(date +%Y%m%d).jsonl | tail -5

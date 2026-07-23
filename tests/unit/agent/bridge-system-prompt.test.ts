@@ -15,6 +15,11 @@ describe('bridge system prompt bot collaboration rules', () => {
     expect(BRIDGE_SYSTEM_PROMPT).toContain('人类用户');
   });
 
+  it('documents how to mention a human group member with a structured at tag', () => {
+    expect(BRIDGE_SYSTEM_PROMPT).toContain('<at id="ou_xxx"></at>');
+    expect(BRIDGE_SYSTEM_PROMPT).toContain('chat.members get');
+  });
+
   it('tells the agent not to mention other bots by default to avoid loops', () => {
     expect(BRIDGE_SYSTEM_PROMPT).toContain('默认不要 @ 其他 bot');
     expect(BRIDGE_SYSTEM_PROMPT).toContain('死循环');

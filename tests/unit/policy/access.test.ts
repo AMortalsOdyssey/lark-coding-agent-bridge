@@ -110,6 +110,18 @@ describe('access policy', () => {
     });
   });
 
+  it('opens every group to members only when groupAccessMode is open', () => {
+    const profile = profileWithAccess({
+      groupAccessMode: 'open',
+      allowedChats: [],
+    });
+
+    expect(canUseGroup(profile, ownerControls, 'chat_new', 'ou_member')).toEqual({
+      ok: true,
+      reason: 'allowed-chat',
+    });
+  });
+
   it('keeps strict group modes closed for non-owners outside their intended audience', () => {
     const ownerOnly = profileWithAccess({
       ownerOpenId: 'ou_owner',
