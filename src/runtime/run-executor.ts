@@ -5,6 +5,7 @@ import { ProcessPool } from '../bot/process-pool';
 import type { RunPolicyAllow } from '../policy/run-policy';
 import { log } from '../core/logger';
 import { RunRejected, SpawnFailed } from './errors';
+import type { ClaudeEffortLevel } from '../config/schema';
 
 export interface RunExecutorDeps {
   agent: AgentAdapter;
@@ -21,6 +22,7 @@ export interface SubmitRunInput {
   sessionId?: string;
   threadId?: string;
   model?: string;
+  effort?: ClaudeEffortLevel;
   images?: readonly string[];
   stopGraceMs?: number;
   nowait?: boolean;
@@ -100,6 +102,7 @@ export class RunExecutor {
       sessionId: input.sessionId,
       threadId: input.threadId,
       model: input.model,
+      effort: input.effort,
       images: input.images,
       sandbox: input.policy.sandbox,
       permissionMode: input.policy.permissionMode,

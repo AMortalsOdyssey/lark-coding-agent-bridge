@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import type { CommentEvent, LarkChannel } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
 import { resolveModelArg } from '../agent/models';
+import { resolveEffortArg } from '../agent/effort';
 import { promptSection } from '../agent/prompt';
 import type { AgentAdapter, AgentEvent } from '../agent/types';
 import { getAgentStopGraceMs } from '../config/schema';
@@ -161,6 +162,10 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
     controls.profileConfig.agentKind,
     controls.profileConfig.preferences.model,
   );
+  const configuredEffort = resolveEffortArg(
+    controls.profileConfig.agentKind,
+    controls.profileConfig.preferences.effort,
+  );
   const prompt = buildCommentPrompt(
     target,
     ctx,
@@ -280,6 +285,7 @@ export async function handleCommentMention(deps: CommentDeps): Promise<void> {
         scopeId: runScopeId,
         policy,
         model: configuredModel,
+        effort: configuredEffort,
         sessionId,
         threadId,
         stopGraceMs: getAgentStopGraceMs(controls.cfg),

@@ -5,6 +5,12 @@ import { dirname, isAbsolute } from 'node:path';
 import type { LarkChannel, NormalizedMessage } from '@larksuite/channel';
 import { claudeCapability, codexCapability } from '../agent/capability';
 import { DEFAULT_MODEL, normalizeModelSelection, supportedModels } from '../agent/models';
+import {
+  DEFAULT_EFFORT,
+  normalizeEffortSelection,
+  resolveEffortArg,
+  supportedEfforts,
+} from '../agent/effort';
 import type { AgentAdapter } from '../agent/types';
 import type { ActiveRuns } from '../bot/active-runs';
 import {
@@ -1790,6 +1796,7 @@ async function showConfigForm(ctx: CommandContext): Promise<void> {
       ctx.controls.profileConfig.agentKind,
       ctx.controls.cfg.preferences?.model,
     ),
+    effort: normalizeEffortSelection(ctx.controls.cfg.preferences?.effort),
     messageReply: getMessageReplyMode(ctx.controls.cfg),
     showToolCalls: getShowToolCalls(ctx.controls.cfg),
     cotMessages: getCotMessages(ctx.controls.cfg),
@@ -1858,6 +1865,16 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     ? rawModel
     : normalizeModelSelection(agentKind, ctx.controls.cfg.preferences?.model);
   const model = modelSelection === DEFAULT_MODEL ? undefined : modelSelection;
+  const rawEffort = String(fv.effort ?? '').trim();
+  const effortValid =
+    rawEffort !== '' && supportedEfforts().some((option) => option.value === rawEffort);
+  const effortSelection =
+    agentKind === 'claude'
+      ? effortValid
+        ? normalizeEffortSelection(rawEffort)
+        : normalizeEffortSelection(ctx.controls.cfg.preferences?.effort)
+      : DEFAULT_EFFORT;
+  const effort = resolveEffortArg(agentKind, effortSelection);
   const rawCotMessages = String(fv.cot_messages ?? '').trim();
   const cotMessages =
     rawCotMessages === 'brief'
@@ -1924,6 +1941,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
     const nextPreferences: AppPreferences = {
       ...(ctx.controls.cfg.preferences ?? {}),
       model,
+      effort,
       messageReply,
       // Mark the messageReply value as living in the new (post-0.1.27)
       // semantic — `text` now means real plain text, not the lightweight
@@ -1992,6 +2010,7 @@ async function submitConfig(ctx: CommandContext): Promise<void> {
       configSavedCard({
         agentKind,
         model: modelSelection,
+        effort: effortSelection,
         messageReply,
         showToolCalls,
         cotMessages,

@@ -1,4 +1,9 @@
 import { modelLabel, supportedModels } from '../agent/models';
+import {
+  DEFAULT_EFFORT,
+  effortLabel,
+  supportedEfforts,
+} from '../agent/effort';
 import type { KnownChat } from '../bot/lark-info';
 import type { AgentKind, LarkCliIdentityPreset } from '../config/profile-schema';
 import type { CotMessagesMode, MessageReplyMode } from '../config/schema';
@@ -8,6 +13,7 @@ export interface ConfigFormOpts {
   agentKind: AgentKind;
   /** Current model selection (a value from {@link supportedModels}). */
   model: string;
+  effort: string;
   messageReply: MessageReplyMode;
   showToolCalls: boolean;
   cotMessages: CotMessagesMode;
@@ -124,7 +130,26 @@ export function configFormCard(opts: ConfigFormOpts): object {
                 value: m.value,
               })),
             },
-            { tag: 'hr' },
+            ...(opts.agentKind === 'claude'
+              ? [
+                  {
+                    tag: 'markdown',
+                    content:
+                      '\n**推理强度**\n' +
+                      '_Claude Code 的 effort；越高通常思考更充分，也可能耗时更长_',
+                  },
+                  {
+                    tag: 'select_static',
+                    name: 'effort',
+                    initial_option: opts.effort || DEFAULT_EFFORT,
+                    options: supportedEfforts().map((option) => ({
+                      text: { tag: 'plain_text', content: option.label },
+                      value: option.value,
+                    })),
+                  },
+                  { tag: 'hr' },
+                ]
+              : [{ tag: 'hr' }]),
             {
               tag: 'markdown',
               content:
@@ -302,6 +327,9 @@ export function configSavedCard(opts: ConfigFormOpts): object {
           content:
             '✅ **偏好已保存**\n\n' +
             `**模型**:\`${modelLabel(opts.agentKind, opts.model)}\`\n` +
+            (opts.agentKind === 'claude'
+              ? `**推理强度**:\`${effortLabel(opts.effort)}\`\n`
+              : '') +
             `**消息回复方式**:${replyLabel}\n` +
             `**工具调用显示**:\`${opts.showToolCalls ? 'show' : 'hide'}\`\n` +
             `**COT 过程消息**:\`${cotLabel}\`\n` +

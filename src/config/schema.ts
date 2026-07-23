@@ -121,6 +121,11 @@ export interface AppPreferences {
    */
   model?: string;
   /**
+   * Claude Code reasoning effort, forwarded as `--effort`. Ignored by Codex
+   * profiles. Unset means "don't pass `--effort`" so Claude Code chooses.
+   */
+  effort?: ClaudeEffortLevel;
+  /**
    * Whether to send a separate Lark COT process message before the final
    * answer. `brief` mirrors the lightweight tool/progress visibility from
    * the legacy tool display; `detailed` also includes tool args/output.
@@ -162,6 +167,8 @@ export interface AppPreferences {
    */
   agentStopGraceMs?: number;
 }
+
+export type ClaudeEffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 /**
  * Top-level config shape on disk.
