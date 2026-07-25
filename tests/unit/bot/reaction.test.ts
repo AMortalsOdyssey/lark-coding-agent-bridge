@@ -42,8 +42,19 @@ describe('working reaction selection', () => {
     const second = selectWorkingReaction(input);
 
     expect(second).toEqual(first);
-    expect(['Typing', 'OnIt', 'OneSecond', 'Get', 'SMILE']).toContain(first.emojiType);
+    expect(['Typing', 'OnIt', 'OneSecond', 'Get', 'THUMBSUP']).toContain(first.emojiType);
+    expect(first.emojiType).not.toBe('SMILE');
     expect(first.reason).toBe('default-pool');
+  });
+
+  it('uses a thumbs-up instead of a smile for sticker-only messages', () => {
+    expect(
+      selectWorkingReaction({
+        messageId: 'om_sticker',
+        content: '',
+        resources: [{ type: 'sticker', fileKey: 'sticker_1' } as ResourceDescriptor],
+      }),
+    ).toMatchObject({ emojiType: 'THUMBSUP', reason: 'sticker-attachment' });
   });
 
   it('falls back to Typing when the selected reaction is rejected by Lark', async () => {

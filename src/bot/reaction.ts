@@ -20,14 +20,14 @@ interface TextReactionRule {
 }
 
 const FALLBACK_EMOJI = 'Typing';
-const DEFAULT_EMOJI_POOL = ['Typing', 'OnIt', 'OneSecond', 'Get', 'SMILE'];
+const DEFAULT_EMOJI_POOL = ['Typing', 'OnIt', 'OneSecond', 'Get', 'THUMBSUP'];
 
 const RESOURCE_REACTIONS: Partial<Record<ResourceDescriptor['type'], ReactionChoice>> = {
   image: { emojiType: 'VRHeadset', reason: 'image-attachment' },
   video: { emojiType: 'VRHeadset', reason: 'video-attachment' },
   audio: { emojiType: 'OneSecond', reason: 'audio-attachment' },
   file: { emojiType: 'Get', reason: 'file-attachment' },
-  sticker: { emojiType: 'SMILE', reason: 'sticker-attachment' },
+  sticker: { emojiType: 'THUMBSUP', reason: 'sticker-attachment' },
 };
 
 const TEXT_RULES: TextReactionRule[] = [

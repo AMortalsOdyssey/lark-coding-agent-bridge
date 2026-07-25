@@ -15,6 +15,7 @@ describe('agent model catalog', () => {
     expect(claude[0]?.value).toBe(DEFAULT_MODEL);
     expect(codex[0]?.value).toBe(DEFAULT_MODEL);
     expect(claude.map((m) => m.value)).toContain('claude-fable-5');
+    expect(claude.map((m) => m.value)).toContain('claude-opus-5');
     expect(claude.map((m) => m.value)).toContain('claude-opus-4-8');
     expect(codex.map((m) => m.value)).toContain('gpt-5.6-sol');
     expect(codex.map((m) => m.value)).toContain('gpt-5-codex');
@@ -25,11 +26,11 @@ describe('agent model catalog', () => {
     expect(isDefaultModel(undefined)).toBe(true);
     expect(isDefaultModel('')).toBe(true);
     expect(isDefaultModel(DEFAULT_MODEL)).toBe(true);
-    expect(isDefaultModel('claude-opus-4-8')).toBe(false);
+    expect(isDefaultModel('claude-opus-5')).toBe(false);
   });
 
   it('coerces unknown / cross-agent selections back to the default option', () => {
-    expect(normalizeModelSelection('claude', 'claude-opus-4-8')).toBe('claude-opus-4-8');
+    expect(normalizeModelSelection('claude', 'claude-opus-5')).toBe('claude-opus-5');
     // A Codex model left over after switching a profile to Claude is invalid.
     expect(normalizeModelSelection('claude', 'gpt-5-codex')).toBe(DEFAULT_MODEL);
     expect(normalizeModelSelection('claude', undefined)).toBe(DEFAULT_MODEL);
@@ -37,6 +38,7 @@ describe('agent model catalog', () => {
 
   it('resolves the --model argument, omitting it for the default', () => {
     expect(resolveModelArg('claude', 'claude-fable-5')).toBe('claude-fable-5');
+    expect(resolveModelArg('claude', 'claude-opus-5')).toBe('claude-opus-5');
     expect(resolveModelArg('claude', 'claude-sonnet-5')).toBe('claude-sonnet-5');
     expect(resolveModelArg('claude', DEFAULT_MODEL)).toBeUndefined();
     expect(resolveModelArg('claude', undefined)).toBeUndefined();
@@ -46,7 +48,8 @@ describe('agent model catalog', () => {
   });
 
   it('labels a stored value using the picker option text', () => {
-    expect(modelLabel('claude', 'claude-opus-4-8')).toBe('Opus 4.8（最新）');
+    expect(modelLabel('claude', 'claude-opus-5')).toBe('Opus 5（最新）');
+    expect(modelLabel('claude', 'claude-opus-4-8')).toBe('Opus 4.8');
     expect(modelLabel('claude', DEFAULT_MODEL)).toContain('跟随默认');
   });
 });
